@@ -494,9 +494,13 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .pv-bar button{flex:1; padding:12px 6px; border-radius:10px; font-size:13px; font-weight:800; background:rgba(255,255,255,.14); color:#fff}
 .pv-bar button.go{background:var(--hi); color:#3D2A00}
 .pv-note{color:#F0F3F5; font-size:11px; padding:0 14px 10px; line-height:1.6; background:var(--ink)}
-.pv-pick{padding:10px 12px 0; background:var(--ink)}
-.pv-pick select{width:100%; padding:11px 12px; border-radius:9px; border:none; font-size:15px;
-  font-family:inherit; background:#fff; color:var(--ink)}
+.pv-pick{padding:10px 0 2px; background:var(--ink)}
+.pchips{display:flex; gap:7px; overflow-x:auto; padding:0 12px 8px; -webkit-overflow-scrolling:touch}
+.pchips::-webkit-scrollbar{display:none}
+.pchip{flex:0 0 auto; padding:10px 15px; border-radius:99px; font-size:13px; font-weight:700;
+  background:rgba(255,255,255,.13); color:#DCE3EA; white-space:nowrap}
+.pchip.on{background:var(--hi); color:#3D2A00; font-weight:800}
+.pv-hint{margin:0; padding:0 14px 8px; font-size:10.5px; color:#8E9AAA; line-height:1.6}
 .sheetp{background:#fff; margin:14px; padding:16px; border-radius:6px; box-shadow:0 4px 18px rgba(0,0,0,.2)}
 .pbreak{height:0}
 .sheetp h1{font-size:18px; text-align:center}
@@ -517,7 +521,7 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
   body{background:#fff}
   #app>*{display:none !important}
   #app>.pv{display:block !important; position:static; background:#fff; overflow:visible}
-  .pv-bar,.pv-note,.pv-pick{display:none !important}
+  .pv-bar,.pv-note,.pv-pick,.pchips{display:none !important}
   .sheetp{margin:0; padding:0; box-shadow:none; border-radius:0; break-inside:avoid}
   .pbreak{break-after:page; page-break-after:always; height:0}
   .pcell{min-height:62px}
@@ -812,8 +816,27 @@ function render(){
   var ae=document.activeElement, key=fieldKey(ae), selS=null, selE=null;
   if(key){ try{ selS=ae.selectionStart; selE=ae.selectionEnd; }catch(e){} }
 
+  /* 表の中でスクロールしていた位置もおぼえる（配置表・年間予定・取込・日の詳細） */
+  var scrolls={};
+  try{
+    var keep=document.querySelectorAll("[data-keep-scroll]");
+    for(var si=0; si<keep.length; si++){
+      scrolls[keep[si].getAttribute("data-keep-scroll")]=[keep[si].scrollLeft, keep[si].scrollTop];
+    }
+  }catch(e){}
+
   el.innerHTML = (S.authed && S.session) ? viewApp() : viewLogin();
   if(window.scrollTo) window.scrollTo(0, toTop?0:y);
+
+  if(!toTop){
+    try{
+      var keep2=document.querySelectorAll("[data-keep-scroll]");
+      for(var sj=0; sj<keep2.length; sj++){
+        var pos=scrolls[keep2[sj].getAttribute("data-keep-scroll")];
+        if(pos){ keep2[sj].scrollLeft=pos[0]; keep2[sj].scrollTop=pos[1]; }
+      }
+    }catch(e){}
+  }
 
   /* おぼえた欄に戻して、カーソルも元の位置へ */
   if(key){
@@ -1015,12 +1038,9 @@ function viewList(){
     if(me) jobs=jobs.filter(function(j){return (j.assigned||[]).indexOf(me)>=0;});
     if(jobs.length) rows.push({date:date,jobs:jobs});
   }
-  var adm=isAdmin(), shortCount=0;
-  Object.keys(S.month.jobs||{}).forEach(function(k){
-    S.month.jobs[k].forEach(function(j){ if((j.assigned||[]).length<(j.need||0)) shortCount++; });
-  });
+  var adm=isAdmin();
   var h=monthBar(adm
-    ? (shortCount>0?'<span class="pill short">人員不足 '+shortCount+'件</span>':'<span class="pill okp">配置ずみ</span>')
+    ? gridShort()
     : (me?'<span class="pill okp">自分の予定</span>':""));
   h+='<button class="pdf-btn" data-act="print">'+(adm?"予定表を作る（PDF）":"予定を確認する（PDF）")+'</button>';
   if(adm){
@@ -1059,28 +1079,50 @@ function viewList(){
 /* ---------- 配置表（列＝協力者 / 行＝日付・現場） ---------- */
 function viewGrid(){
   var total=daysInMonth(S.ym), today=ymd(new Date());
-  var ms=(S.config.members||[]).filter(function(m){return m.active!==false;});
-  var rows=[], counts={};
+  var ms=gridMembers();
+  var rows=[];
   for(var d=1; d<=total; d++){
     var date=S.ym+"-"+pad(d), jobs=(S.month.jobs||{})[date]||[];
     if(!jobs.length){ rows.push({date:date, job:null, first:true}); continue; }
     jobs.forEach(function(j,i){ rows.push({date:date, job:j, first:i===0}); });
   }
+
+  var h=monthBar('<span id="gshort">'+gridShort()+'</span>');
+  h+='<div class="gwrap" data-keep-scroll="grid"><table class="gtable"><thead><tr>'+
+      '<th class="gd">日</th><th class="gs">現場・時間・人数</th>'+
+      ms.map(function(m){ return '<th class="gm"><span class="gm-n">'+esc(m.name)+'</span></th>'; }).join("")+
+    '</tr></thead><tbody id="gbody">';
+  h+=gridRows(rows, ms, today);
+  h+='</tbody><tfoot id="gfoot">';
+  h+=gridFoot(ms);
+  h+='</tfoot></table></div>';
+  h+='<p class="ghint"><b>升をおすたびに ○ → ✕ → 空白 と変わります。</b>'+
+     '○＝その現場に配置、✕＝その日は出られない、空白＝どちらでもない。<br>'+
+     '日付や現場名をおすと、その日の内容をくわしく直せます。'+
+     '協力者名は上に、日付と現場名は左に固定しているので、横にスクロールすると全員ぶん見られます。</p>';
+  return h;
+}
+
+function gridShort(){
+  var n=0;
+  Object.keys(S.month.jobs||{}).forEach(function(k){
+    S.month.jobs[k].forEach(function(j){ if((j.assigned||[]).length<(j.need||0)) n++; });
+  });
+  return n>0 ? '<span class="pill short">人員不足 '+n+'件</span>' : '<span class="pill okp">配置ずみ</span>';
+}
+function gridMembers(){
+  return (S.config.members||[]).filter(function(m){return m.active!==false;});
+}
+function gridFoot(ms){
+  var counts={};
   Object.keys(S.month.jobs||{}).forEach(function(k){
     S.month.jobs[k].forEach(function(j){ (j.assigned||[]).forEach(function(id){ counts[id]=(counts[id]||0)+1; }); });
   });
-
-  var shortCount=0;
-  Object.keys(S.month.jobs||{}).forEach(function(k){
-    S.month.jobs[k].forEach(function(j){ if((j.assigned||[]).length<(j.need||0)) shortCount++; });
-  });
-
-  var h=monthBar(shortCount>0?'<span class="pill short">人員不足 '+shortCount+'件</span>':'<span class="pill okp">配置ずみ</span>');
-  h+='<div class="gwrap"><table class="gtable"><thead><tr>'+
-      '<th class="gd">日</th><th class="gs">現場・時間・人数</th>'+
-      ms.map(function(m){ return '<th class="gm"><span class="gm-n">'+esc(m.name)+'</span></th>'; }).join("")+
-    '</tr></thead><tbody>';
-  h+=rows.map(function(r){
+  return '<tr class="gfoot"><th class="gd">計</th><th class="gs">この月の件数</th>'+
+     ms.map(function(m){ return '<td>'+(counts[m.id]||0)+'</td>'; }).join("")+'</tr>';
+}
+function gridRows(rows, ms, today){
+  return rows.map(function(r){
     var dow=parseYmd(r.date).getDay(), j=r.job;
     var cls=(r.first?"newday ":"")+(dow===0?"sunrow":dow===6?"satrow":"")+(r.date===today?" todayrow":"");
     var left='<td class="gd '+(dow===0?"sun":dow===6?"sat":"")+'" data-act="day" data-v="'+r.date+'">'+
@@ -1104,13 +1146,21 @@ function viewGrid(){
           ' data-j="'+j.id+'" data-d="'+r.date+'" data-m="'+m.id+'">'+(on?"○":(st==="ng"?"✕":""))+'</td>';
       }).join("")+'</tr>';
   }).join("");
-  h+='</tbody><tfoot><tr class="gfoot"><th class="gd">計</th><th class="gs">この月の件数</th>'+
-     ms.map(function(m){ return '<td>'+(counts[m.id]||0)+'</td>'; }).join("")+'</tr></tfoot></table></div>';
-  h+='<p class="ghint"><b>升をおすたびに ○ → ✕ → 空白 と変わります。</b>'+
-     '○＝その現場に配置、✕＝その日は出られない、空白＝どちらでもない。<br>'+
-     '日付や現場名をおすと、その日の内容をくわしく直せます。'+
-     '協力者名は上に、日付と現場名は左に固定しているので、横にスクロールすると全員ぶん見られます。</p>';
-  return h;
+}
+
+/* 升を押したあと、表の中身だけを書きかえる（スクロール位置を保つため） */
+function gridRefresh(){
+  var total=daysInMonth(S.ym), today=ymd(new Date()), rows=[];
+  for(var d=1; d<=total; d++){
+    var date=S.ym+"-"+pad(d), jobs=(S.month.jobs||{})[date]||[];
+    if(!jobs.length){ rows.push({date:date, job:null, first:true}); continue; }
+    jobs.forEach(function(j,i){ rows.push({date:date, job:j, first:i===0}); });
+  }
+  var ms=gridMembers();
+  var okb=patch("gbody", gridRows(rows, ms, today));
+  var okf=patch("gfoot", gridFoot(ms));
+  patch("gshort", gridShort());
+  return okb && okf;
 }
 
 /* ---------- 年間予定 ---------- */
@@ -1156,7 +1206,7 @@ function annualResults(){
   if(!sites.length) return '<div class="empty-state"><p>あてはまる施設がありません。</p>'+
     (adm?'<p class="sub">「契約先」タブで履行内容と月を登録してください。</p>':'')+'</div>';
 
-  var h='<div class="ascroll"><table class="atable"><thead><tr><th class="sname">施設</th>'+
+  var h='<div class="ascroll" data-keep-scroll="annual"><table class="atable"><thead><tr><th class="sname">施設</th>'+
      FY_MONTHS.map(function(m){return '<th>'+m+'</th>';}).join("")+'</tr></thead><tbody>';
   h+=sites.map(function(s){
     var ms=monthsOf(s.id), n=plansOf(s.id).length;
@@ -1260,7 +1310,7 @@ function viewImport(){
 
   h+='<h3 class="secttl mt2" style="font-size:14px">取り込む内容（'+rows.length+'件）</h3>'+
      '<p class="hint">名前や時間はこの場で直せます。いらない行は ✕ で消せます。</p>'+
-     '<div class="prev"><table><thead><tr><th style="width:78px">日付</th><th style="width:58px">時間</th>'+
+     '<div class="prev" data-keep-scroll="import"><table><thead><tr><th style="width:78px">日付</th><th style="width:58px">時間</th>'+
      '<th>現場名</th><th style="width:34px"></th></tr></thead><tbody>';
   var prevDate="";
   h+=rows.slice(0,400).map(function(r,i){
@@ -1449,7 +1499,7 @@ function viewSiteSheet(){
   var inFy=(fyOfYm(S.ym)===S.fy);
   var h='<div class="sheet-wrap" data-act="close-bg"><div class="sheet">'+
     '<div class="sheet-hd"><h2>'+esc(s.name)+'<small>'+esc(GROUPS[s.group]||s.group)+'　'+esc(s.area)+'　'+fyLabel(S.fy)+'</small></h2>'+
-    '<button class="close" data-act="close">✕</button></div><div class="sheet-body">';
+    '<button class="close" data-act="close">✕</button></div><div class="sheet-body" data-keep-scroll="sheet">';
 
   h+='<section class="blk"><div class="blk-hd"><h3>履行内容と実施月</h3>'+
     (adm?'<button class="add" data-act="plan-add-open" data-id="'+s.id+'">＋ 追加</button>':'')+'</div>';
@@ -1721,7 +1771,7 @@ function viewDaySheet(){
   var body=S.editing?viewEditor(date):viewDay(date,jobs,me,adm);
   return '<div class="sheet-wrap" data-act="close-bg"><div class="sheet">'+
     '<div class="sheet-hd"><h2>'+labelJP(date)+'</h2><button class="close" data-act="close">✕</button></div>'+
-    '<div class="sheet-body">'+body+'</div></div></div>';
+    '<div class="sheet-body" data-keep-scroll="sheet">'+body+'</div></div></div>';
 }
 function stampSvg(kind){
   return '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" class="ring"/>'+
@@ -1888,12 +1938,14 @@ function viewPrint(){
 
   var picker="";
   if(adm){
-    picker='<div class="pv-pick"><select data-field="printFor">'+
-      '<option value=""'+(!sel?" selected":"")+'>全員ぶん（1枚）</option>'+
-      '<option value="each"'+(sel==="each"?" selected":"")+'>協力者ごとに1枚ずつ</option>'+
+    var chips='<button class="pchip'+(!sel?" on":"")+'" data-act="print-for" data-v="">全員ぶん</button>'+
+      '<button class="pchip'+(sel==="each"?" on":"")+'" data-act="print-for" data-v="each">1人ずつ全員</button>'+
       (S.config.members||[]).filter(function(m){return m.active!==false;}).map(function(m){
-        return '<option value="'+m.id+'"'+(sel===m.id?" selected":"")+'>'+esc(m.name)+' さんのぶん</option>';
-      }).join("")+'</select></div>';
+        return '<button class="pchip'+(sel===m.id?" on":"")+'" data-act="print-for" data-v="'+m.id+'">'+
+          esc(m.name)+'</button>';
+      }).join("");
+    picker='<div class="pv-pick"><div class="pchips">'+chips+'</div>'+
+      '<p class="pv-hint">だれのぶんを出しますか。横にスライドすると全員えらべます。</p></div>';
   }
 
   var note = (adm && sel==="each")
@@ -1974,7 +2026,8 @@ document.addEventListener("click", async function(ev){
       S.month.avail=S.month.avail||{};
       S.month.avail[cm]=S.month.avail[cm]||{};
       if(next==="ng") S.month.avail[cm][cd]="ng"; else delete S.month.avail[cm][cd];
-      render();
+      /* 表の中だけ書きかえる。画面ぜんぶを作り直すと、スクロール位置が戻ってしまうため */
+      if(S.tab!=="grid" || !gridRefresh()) render();
 
       /* つづけて保存。うまくいかなければ、画面をサーバーの状態に戻す */
       try{
@@ -2180,6 +2233,7 @@ document.addEventListener("click", async function(ev){
 
     /* 印刷 */
     case "print": S.printing=true; S.printFor=null; S.scrollTop=true; render(); break;
+    case "print-for": S.printFor=v||null; S.scrollTop=true; render(); break;
     case "print-close": S.printing=false; render(); break;
     case "print-go":
       try{ window.print(); }
@@ -2218,9 +2272,18 @@ document.addEventListener("input", function(ev){
 });
 document.addEventListener("change", function(ev){
   var f=ev.target.getAttribute&&ev.target.getAttribute("data-field"); if(!f) return;
-  if(f==="printFor"){ S.printFor=ev.target.value||null; S.scrollTop=true; render(); }
-  else if(f==="annMonth"){ S.annMonth=Number(ev.target.value); render(); }
-  else if(f==="siteGroup"){ S.siteGroup=ev.target.value; render(); }
+  /* えらんだメニューそのものは作り直さず、結果のところだけ書きかえる。
+     作り直すと、iPhoneのドラム式メニューで選んだ内容が戻ってしまうため。 */
+  if(f==="annMonth"){
+    S.annMonth=Number(ev.target.value);
+    if(!patch("annRes", annualResults())) render();
+  }
+  else if(f==="siteGroup"){
+    S.siteGroup=ev.target.value;
+    if(S.tab==="annual"){ if(patch("annRes", annualResults())) return; }
+    if(S.tab==="sites"){ if(patch("siteRes", sitesResults())) return; }
+    render();
+  }
 });
 /* 配置表の升を連打しても、文字が選ばれないようにする */
 document.addEventListener("selectstart", function(ev){
