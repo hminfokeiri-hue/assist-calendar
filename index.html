@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>アシストカレンダー</title>
+<style>
+:root{
+  --ink:#141E2C; --ink2:#5A6675; --line:#DCE1E4;
+  --paper:#EEF1F0; --card:#FFFFFF;
+  --hi:#F2B01E; --ok:#0E7C63; --ng:#C0402F; --short:#E2761B;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0; padding:0}
+body{font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic",system-ui,sans-serif;
+  color:var(--ink); background:var(--paper); min-height:100vh; -webkit-font-smoothing:antialiased}
+button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; padding:0}
+input,select{font-family:inherit; font-size:16px}
+h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
+:focus-visible{outline:3px solid var(--hi); outline-offset:2px}
+
+.boot{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; min-height:70vh; color:var(--ink2)}
+.stamp-mark{width:56px; height:56px; border-radius:50%; border:5px solid var(--ok); position:relative}
+.stamp-mark::after{content:""; position:absolute; inset:12px; border-radius:50%; border:5px solid var(--ok); opacity:.35}
+
+/* ログイン */
+.login{padding:calc(env(safe-area-inset-top) + 32px) 20px 48px; max-width:520px; margin:0 auto}
+.login-head{text-align:center; margin-bottom:28px}
+.login-head .stamp-mark{margin:0 auto 16px}
+.login h1{font-size:26px}
+.login .sub{margin:6px 0 0; color:var(--ink2); font-size:13px; letter-spacing:.22em}
+.login-choice{display:flex; flex-direction:column; gap:12px}
+.big-btn{width:100%; text-align:left; background:var(--card); border:2px solid var(--line);
+  border-radius:14px; padding:18px 20px; display:flex; flex-direction:column; gap:4px; transition:transform .12s}
+.big-btn:active{transform:scale(.985)}
+.big-btn.primary{background:var(--ink); color:#fff; border-color:var(--ink)}
+.big-btn-t{font-size:18px; font-weight:800}
+.big-btn-s{font-size:13px; color:var(--ink2)}
+.big-btn.primary .big-btn-s{color:#B9C3CF}
+.login-list{display:flex; flex-direction:column; gap:14px}
+.lead{margin:0; font-weight:700}
+.name-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px}
+.name-btn{background:var(--card); border:2px solid var(--line); border-radius:12px; padding:18px 8px;
+  font-size:16px; font-weight:700; transition:border-color .12s, transform .12s}
+.name-btn:active{transform:scale(.97); border-color:var(--ok)}
+.pin{width:100%; text-align:center; font-size:30px; letter-spacing:.4em; padding:14px;
+  border:2px solid var(--line); border-radius:12px; background:var(--card)}
+.err{color:var(--ng); font-size:13px; margin:0}
+.link{color:var(--ink2); text-decoration:underline; font-size:14px; padding:8px}
+.foot-note{margin-top:28px; font-size:11px; color:var(--ink2); line-height:1.7; text-align:center}
+
+/* ヘッダー */
+.hd{display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:calc(env(safe-area-inset-top) + 12px) 14px 12px; background:var(--ink); color:#fff;
+  position:sticky; top:0; z-index:20}
+.hd-title{font-size:13px; font-weight:800; letter-spacing:.1em}
+.hd-who{font-size:11px; color:#B9C3CF; margin-top:2px}
+.hd-who.adm{color:var(--hi); font-weight:700}
+.hd-r{display:flex; align-items:center; gap:8px}
+.synced{font-size:10px; color:#8E9AAA}
+.icon-btn{width:34px; height:34px; border-radius:9px; background:rgba(255,255,255,.1); font-size:15px}
+.spin{display:inline-block; animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.banner{background:#4A2F12; color:#FFD98A; font-size:12px; padding:8px 14px; line-height:1.6}
+
+.tabs{display:flex; background:var(--card); border-bottom:1px solid var(--line); overflow-x:auto; -webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto; padding:13px 15px; font-size:13px; font-weight:700; color:var(--ink2); border-bottom:3px solid transparent; white-space:nowrap}
+.tab.on{color:var(--ink); border-bottom-color:var(--hi)}
+.main{padding:14px 12px 70px; max-width:680px; margin:0 auto}
+
+/* 月バー */
+.mbar{display:flex; align-items:center; gap:6px; margin-bottom:12px; flex-wrap:wrap}
+.mnav{width:38px; height:38px; border-radius:10px; background:var(--card); border:1px solid var(--line); font-size:20px; line-height:1; color:var(--ink2)}
+.mlabel{display:flex; align-items:baseline; gap:3px}
+.my{font-size:12px; color:var(--ink2)}
+.mm{font-size:30px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+.mu{font-size:13px; font-weight:700}
+.mbar-right{margin-left:auto}
+.pill{font-size:11px; font-weight:700; padding:6px 11px; border-radius:99px; background:var(--card); border:1px solid var(--line)}
+.pill.short{background:#FDEEE0; color:#8A4508; border-color:#F3CFA6}
+.pill.okp{color:var(--ok)}
+.pill.toggle.on{background:var(--ink); color:#fff; border-color:var(--ink)}
+
+/* 予定を確認する */
+.pdf-btn{width:100%; background:var(--ink); color:#fff; border-radius:12px; padding:15px;
+  font-size:15px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:14px}
+.pdf-btn:active{transform:scale(.99)}
+
+/* カレンダー */
+.wd-row{display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-bottom:3px}
+.wd{text-align:center; font-size:11px; font-weight:700; color:var(--ink2); padding:4px 0}
+.wd.sun{color:var(--ng)} .wd.sat{color:#2B6CB0}
+.grid{display:grid; grid-template-columns:repeat(7,1fr); gap:3px}
+.cell{position:relative; aspect-ratio:1/1.05; background:var(--card); border:1px solid var(--line);
+  border-radius:8px; display:flex; flex-direction:column; align-items:center; padding:4px 2px 5px; transition:transform .1s}
+.cell:active{transform:scale(.95)}
+.cell.empty{background:transparent; border-color:transparent}
+.cell.today{border-color:var(--ink); border-width:2px}
+.cell.mine{background:#FFFBF0}
+.cell.okd{background:#EDF6F3}
+.cell.ngd{background:#FBEEEC}
+.dnum{font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.2}
+.dnum.sun{color:var(--ng)} .dnum.sat{color:#2B6CB0}
+.cell-x{position:absolute; top:2px; right:4px; font-size:10px; font-weight:800}
+.cell-x.ng{color:var(--ng)} .cell-x.ok{color:var(--ok)}
+.dots{display:flex; flex-wrap:wrap; gap:2px; justify-content:center; margin-top:auto}
+.dot{width:6px; height:6px; border-radius:50%; background:var(--ink2); display:block}
+.dot.short{background:var(--short)}
+.dot.me{background:var(--hi); box-shadow:0 0 0 1.5px #C98F0A inset}
+.more{font-size:9px; color:var(--ink2); line-height:1}
+.corner{position:absolute; top:0; right:0; width:0; height:0; border-top:9px solid var(--short); border-left:9px solid transparent}
+.legend{display:flex; flex-wrap:wrap; gap:12px; margin-top:14px; font-size:11px; color:var(--ink2)}
+.legend span{display:flex; align-items:center; gap:5px}
+.lx{color:var(--ng)}
+
+/* 縦長の日付表（協力者の出欠入力） */
+.dsect{margin-top:22px}
+.dsect h3{font-size:15px}
+.dtable{margin-top:10px; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.drow{display:flex; align-items:center; gap:8px; padding:7px 10px; border-top:1px solid #F0F2F1}
+.drow:first-child{border-top:none}
+.drow.today{background:#FFFDF5; box-shadow:inset 3px 0 0 var(--ink)}
+.drow.sunbg{background:#FDF6F5}
+.drow.satbg{background:#F4F7FB}
+.ddate{flex:0 0 54px; display:flex; align-items:baseline; gap:4px; font-variant-numeric:tabular-nums}
+.ddate b{font-size:19px; font-weight:800}
+.ddate small{font-size:11px; font-weight:700; color:var(--ink2)}
+.ddate.sun b,.ddate.sun small{color:var(--ng)}
+.ddate.sat b,.ddate.sat small{color:#2B6CB0}
+.dmid{flex:1; min-width:0; font-size:12px; color:var(--ink2); line-height:1.4}
+.dmid b{display:block; font-size:13px; color:var(--ink); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.dbtns{flex:0 0 auto; display:flex; gap:6px}
+.db{width:46px; height:40px; border-radius:10px; border:2px solid var(--line); font-size:17px; font-weight:800; color:#BFC7CC; background:#FBFCFC; transition:transform .12s}
+.db:active{transform:scale(.9)}
+.db.ok.on{border-color:var(--ok); background:#E9F4F0; color:var(--ok)}
+.db.ng.on{border-color:var(--ng); background:#FBEEEC; color:var(--ng)}
+
+/* リスト */
+.list{display:flex; flex-direction:column; gap:10px}
+.lrow{background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.lrow.today{border-color:var(--ink); border-width:2px}
+.lhead{width:100%; display:flex; align-items:center; gap:10px; padding:10px 12px; background:#F7F9F8; border-bottom:1px solid var(--line)}
+.lday{font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:4px}
+.lday small{font-size:12px; font-weight:700}
+.lday.sun{color:var(--ng)} .lday.sat{color:#2B6CB0}
+.lspacer{flex:1}
+.chev{font-size:20px; color:var(--ink2)}
+.tag{font-size:11px; font-weight:700; padding:4px 9px; border-radius:99px}
+.tag.ngt{background:#FBEEEC; color:var(--ng)}
+.tag.okt{background:#E6F2EE; color:var(--ok)}
+.ljob{padding:10px 12px; border-top:1px solid #F0F2F1}
+.ljob-top,.jcard-top{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
+.jtime{font-size:14px; font-weight:800; font-variant-numeric:tabular-nums}
+.jsite{font-size:15px; font-weight:700; flex:1; min-width:0}
+.jcount{font-size:12px; font-weight:700; color:var(--ink2); font-variant-numeric:tabular-nums}
+.jcount.short{color:var(--short)}
+.chips{display:flex; flex-wrap:wrap; gap:5px; margin-top:7px}
+.chip{font-size:12px; padding:4px 9px; border-radius:99px; background:#EDF1F0; color:var(--ink2)}
+.chip.me{background:var(--hi); color:#3D2A00; font-weight:800}
+.chip.warn{background:#FBEEEC; color:var(--ng); text-decoration:line-through}
+.chip.none{background:#FDEEE0; color:#8A4508}
+.empty-state{background:var(--card); border:1px dashed var(--line); border-radius:12px; padding:28px 20px; text-align:center}
+.empty-state p{margin:0} .empty-state .sub{margin-top:6px; font-size:12px; color:var(--ink2)}
+
+/* 配置表（出面表） */
+.gwrap{overflow:auto; -webkit-overflow-scrolling:touch; background:var(--card); border:1px solid var(--line);
+  border-radius:12px; max-height:74vh}
+.gtable{border-collapse:separate; border-spacing:0; font-size:11px}
+.gtable th,.gtable td{border-right:1px solid #EDF0F1; border-bottom:1px solid #EDF0F1; background:var(--card)}
+.gtable thead th{position:sticky; top:0; z-index:3; background:#F7F9F8; border-bottom:2px solid var(--line)}
+.gd{position:sticky; left:0; z-index:2; width:36px; min-width:36px; text-align:center; padding:5px 2px}
+.gs{position:sticky; left:36px; z-index:2; width:116px; min-width:116px; text-align:left; padding:5px 7px;
+  border-right:2px solid var(--line)}
+.gtable thead .gd,.gtable thead .gs{z-index:5}
+.gm{width:30px; min-width:30px; text-align:center; padding:0}
+.gtable thead .gm{height:88px; vertical-align:bottom; padding-bottom:5px}
+.gm-n{writing-mode:vertical-rl; text-orientation:mixed; font-size:10px; font-weight:800; white-space:nowrap;
+  display:inline-block; max-height:78px; overflow:hidden}
+.gd b{font-size:14px; font-weight:800; font-variant-numeric:tabular-nums; display:block; line-height:1.1}
+.gd small{font-size:9px; color:var(--ink2)}
+.gd.sun b,.gd.sun small{color:var(--ng)} .gd.sat b,.gd.sat small{color:#2B6CB0}
+.gs b{font-size:12px; font-weight:700; display:block; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.gs small{font-size:10px; color:var(--ink2); font-variant-numeric:tabular-nums}
+.gs small.short{color:var(--short); font-weight:800}
+.gcell{height:30px; text-align:center; font-size:13px; font-weight:800; color:#DBE0E3}
+.gcell.on{color:var(--ok); background:#EDF6F3}
+.gcell.x{color:var(--ng); background:#FBEEEC; font-size:11px}
+.gtable tr.newday .gd,.gtable tr.newday .gs,.gtable tr.newday td{border-top:2px solid var(--line)}
+.gtable tr.sunrow .gd,.gtable tr.sunrow .gs{background:#FDF6F5}
+.gtable tr.satrow .gd,.gtable tr.satrow .gs{background:#F4F7FB}
+.gfoot td,.gfoot th{position:sticky; bottom:0; z-index:2; background:#F7F9F8; border-top:2px solid var(--line);
+  font-weight:800; font-size:11px; text-align:center; color:var(--ink2)}
+.gfoot .gs{z-index:4} .gfoot .gd{z-index:4}
+.ghint{font-size:11px; color:var(--ink2); margin:10px 0 0; line-height:1.6}
+
+/* 保存バー */
+.save-bar{position:sticky; bottom:0; display:flex; align-items:center; gap:8px; margin-top:12px;
+  padding:11px; background:#FFF7E3; border:2px solid var(--hi); border-radius:12px}
+.save-bar span{flex:1; font-size:12px; font-weight:800; color:#7A5300}
+.save-bar button{padding:11px 15px; border-radius:9px; font-size:13px; font-weight:800}
+.save-bar .cancel{background:var(--card); border:1px solid var(--line); color:var(--ink2)}
+.save-bar .save{background:var(--ink); color:#fff}
+.av-b.draft{box-shadow:0 0 0 3px rgba(242,176,30,.45)}
+.mpin{width:58px; padding:7px 6px; border:2px solid var(--line); border-radius:8px; font-size:14px;
+  text-align:center; letter-spacing:.15em; background:var(--card)}
+.mpin-h{font-size:10px; color:var(--ink2); text-align:center; width:58px; display:block}
+.secttl.mt2{margin-top:26px; font-size:15px}
+
+/* 年度バー */
+.fybar{display:flex; align-items:center; gap:6px; margin-bottom:12px; flex-wrap:wrap}
+.fynav{width:30px; height:30px; border-radius:8px; background:var(--card); border:1px solid var(--line); font-size:16px; line-height:1; color:var(--ink2)}
+.fylab{font-size:13px; font-weight:800; font-variant-numeric:tabular-nums}
+.fyrange{font-size:10px; color:var(--ink2)}
+.fyroll{margin-left:auto; font-size:11px; font-weight:700; background:#EDF1F0; color:var(--ink2); padding:7px 11px; border-radius:8px}
+.fyroll.warn{background:var(--hi); color:#3D2A00}
+.fypast{font-size:10px; font-weight:700; color:#8A4508; background:#FDEEE0; padding:4px 8px; border-radius:99px}
+
+/* 年間予定 */
+.filters{display:flex; gap:7px; flex-wrap:wrap; margin-bottom:12px}
+.filters select,.filters input{padding:9px 10px; border:2px solid var(--line); border-radius:10px; background:var(--card); font-size:14px}
+.filters input{flex:1; min-width:120px}
+.asum{font-size:12px; color:var(--ink2); margin:0 0 10px}
+.ascroll{overflow-x:auto; -webkit-overflow-scrolling:touch; background:var(--card); border:1px solid var(--line); border-radius:12px}
+.atable{border-collapse:separate; border-spacing:0; width:100%; font-size:11px}
+.atable th{position:sticky; top:0; background:#F7F9F8; font-size:10px; font-weight:800; color:var(--ink2); padding:7px 0; z-index:2}
+.atable th.sname,.atable td.sname{position:sticky; left:0; background:var(--card); text-align:left;
+  min-width:128px; max-width:128px; padding:7px 8px; border-right:1px solid var(--line); z-index:1}
+.atable th.sname{background:#F7F9F8; z-index:3}
+.atable td.sname b{font-size:12px; font-weight:700; display:block; line-height:1.25}
+.atable td.sname small{font-size:10px; color:var(--ink2)}
+.atable tr{border-top:1px solid #F0F2F1}
+.atable td{padding:0; border-top:1px solid #F0F2F1}
+.mcell{width:26px; height:34px; text-align:center; font-size:10px; font-weight:800; color:#D2D8DB}
+.mcell.on{background:#E3F1EC; color:var(--ok)}
+.mcell.cur{box-shadow:inset 0 0 0 2px var(--hi)}
+.arow-btn{display:contents}
+
+/* 契約先 */
+.sgroup{margin-top:16px}
+.sgroup h3{font-size:13px; color:var(--ink2); margin-bottom:7px}
+.scard{width:100%; text-align:left; background:var(--card); border:1px solid var(--line); border-radius:10px;
+  padding:11px 12px; margin-bottom:7px; display:flex; align-items:center; gap:9px}
+.scard-m{flex:1; min-width:0}
+.scard b{font-size:14px; font-weight:700; display:block}
+.scard small{font-size:11px; color:var(--ink2)}
+.scard .cnt{font-size:11px; font-weight:800; color:var(--ok); background:#E3F1EC; padding:4px 8px; border-radius:99px; white-space:nowrap}
+.scard .cnt.zero{color:var(--ink2); background:#EDF1F0}
+.mchips{display:flex; flex-wrap:wrap; gap:4px; margin-top:8px}
+.mchip{width:30px; height:30px; border-radius:8px; border:2px solid var(--line); font-size:11px; font-weight:800; color:#C3CACE; background:var(--card)}
+.mchip.on{border-color:var(--ok); background:#E3F1EC; color:var(--ok)}
+.plan{border:1px solid var(--line); border-radius:10px; padding:11px 12px; margin-top:9px}
+.plan-hd{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.plan-hd b{font-size:14px}
+.plan-del{font-size:11px; color:var(--ng); text-decoration:underline}
+.svc-pick{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.svc{font-size:12px; font-weight:700; padding:9px 12px; border-radius:99px; border:2px solid var(--line); background:var(--card)}
+.svc.del{border-style:dashed; color:var(--ng)}
+
+/* シート */
+.sheet-wrap{position:fixed; inset:0; background:rgba(20,30,44,.5); z-index:40; display:flex; align-items:flex-end; justify-content:center}
+.sheet{background:var(--paper); width:100%; max-width:680px; max-height:92vh; border-radius:18px 18px 0 0;
+  display:flex; flex-direction:column; animation:up .22s cubic-bezier(.2,.8,.3,1)}
+@keyframes up{from{transform:translateY(24px); opacity:.6}}
+.sheet-hd{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:16px 16px 12px;
+  border-bottom:1px solid var(--line); background:var(--card); border-radius:18px 18px 0 0}
+.sheet-hd h2{font-size:18px; min-width:0}
+.sheet-hd small{display:block; font-size:11px; color:var(--ink2); font-weight:400; margin-top:2px}
+.close{flex:0 0 34px; width:34px; height:34px; border-radius:9px; background:#EDF1F0; font-size:14px}
+.sheet-body{overflow-y:auto; padding:14px 14px calc(env(safe-area-inset-bottom) + 40px); -webkit-overflow-scrolling:touch}
+.blk{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px}
+.blk h3{font-size:14px}
+.blk-hd{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.hint{font-size:12px; color:var(--ink2); line-height:1.65; margin:8px 0 0}
+.add{font-size:12px; font-weight:700; background:var(--ink); color:#fff; padding:8px 12px; border-radius:9px}
+
+/* ○✕スタンプ */
+.stamp-row{display:flex; gap:12px; margin-top:12px}
+.stamp{flex:1; display:flex; flex-direction:column; align-items:center; gap:8px; padding:14px 6px;
+  border-radius:14px; border:2px solid var(--line); background:#FBFCFC;
+  transition:transform .14s cubic-bezier(.2,.8,.3,1), background .14s, border-color .14s}
+.stamp svg{width:70px; height:70px}
+.stamp .ring{fill:none; stroke:#C6CDD2; stroke-width:8; stroke-linecap:round}
+.stamp span{font-size:14px; font-weight:800; color:var(--ink2)}
+.stamp:active{transform:scale(.9) rotate(-3deg)}
+.stamp.ok.on{border-color:var(--ok); background:#E9F4F0}
+.stamp.ok.on .ring{stroke:var(--ok)}
+.stamp.ok.on span{color:var(--ok)}
+.stamp.ng.on{border-color:var(--ng); background:#FBEEEC}
+.stamp.ng.on .ring{stroke:var(--ng)}
+.stamp.ng.on span{color:var(--ng)}
+
+.mycard{background:#FFFBF0; border-left:4px solid var(--hi); border-radius:0 10px 10px 0; padding:11px 13px; margin-top:9px}
+.mytime{font-size:19px; font-weight:800; font-variant-numeric:tabular-nums}
+.mysite{font-size:15px; font-weight:700; margin-top:2px}
+.mywith{font-size:12px; color:var(--ink2); margin-top:5px}
+.mynote{font-size:12px; margin-top:5px}
+.jcard{border:1px solid var(--line); border-radius:10px; padding:11px 12px; margin-top:9px}
+.warnline{font-size:12px; color:var(--ng); margin:8px 0 0; font-weight:700}
+.jnote{font-size:12px; color:var(--ink2); margin:6px 0 0}
+.edit{font-size:12px; font-weight:700; text-decoration:underline; margin-top:9px}
+
+.av-list{margin-top:10px; display:flex; flex-direction:column}
+.av-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; border-top:1px solid #F0F2F1}
+.av-name{font-size:14px; font-weight:700; display:flex; align-items:center; gap:6px}
+.av-badge{font-size:10px; font-style:normal; background:var(--hi); color:#3D2A00; padding:2px 6px; border-radius:5px}
+.av-btns{display:flex; gap:6px}
+.av-b{width:44px; height:38px; border-radius:9px; border:2px solid var(--line); font-size:16px; font-weight:800; color:#B5BDC3}
+.av-b.ok.on{border-color:var(--ok); background:#E9F4F0; color:var(--ok)}
+.av-b.ng.on{border-color:var(--ng); background:#FBEEEC; color:var(--ng)}
+
+/* エディタ */
+.editor h3{font-size:15px}
+.editor h3 em{font-style:normal; font-size:13px; color:var(--ink2); font-weight:700}
+.editor .mt{margin-top:20px}
+.f{display:flex; flex-direction:column; gap:6px; margin-top:12px; flex:1}
+.f>span{font-size:12px; font-weight:700; color:var(--ink2)}
+.f input{padding:12px; border:2px solid var(--line); border-radius:10px; background:var(--card); width:100%}
+.f-row{display:flex; gap:10px}
+.sug{display:flex; flex-direction:column; gap:0; margin-top:6px; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--card)}
+.sug button{text-align:left; padding:11px 12px; border-bottom:1px solid #F0F2F1; font-size:13px}
+.sug button:last-child{border-bottom:none}
+.sug small{color:var(--ink2); font-size:11px; margin-left:6px}
+.stepper{display:flex; align-items:center; gap:4px; background:var(--card); border:2px solid var(--line); border-radius:10px; padding:4px}
+.stepper button{width:38px; height:36px; font-size:19px; font-weight:700; border-radius:7px; background:#EDF1F0}
+.stepper b{flex:1; text-align:center; font-size:17px; font-variant-numeric:tabular-nums}
+.pick-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:7px; margin-top:10px}
+.pick{display:flex; align-items:center; justify-content:space-between; gap:4px; padding:11px 10px;
+  border:2px solid var(--line); border-radius:10px; background:var(--card); text-align:left}
+.pick-n{font-size:13px; font-weight:700}
+.pick-s{font-size:12px; font-weight:800; color:var(--ink2)}
+.pick.okv .pick-s{color:var(--ok)}
+.pick.ngv{background:#FCF4F3}
+.pick.ngv .pick-s{color:var(--ng)}
+.pick.on{background:var(--ink); border-color:var(--ink); color:#fff}
+.pick.on .pick-s{color:var(--hi)}
+.editor-actions{display:flex; gap:8px; margin-top:22px; position:sticky; bottom:0; padding:12px 0; background:var(--paper)}
+.editor-actions button{flex:1; padding:14px 8px; border-radius:11px; font-size:14px; font-weight:800}
+.ghost{background:var(--card); border:2px solid var(--line)}
+.danger{background:#FBEEEC; color:var(--ng); border:2px solid #F0D3CF; flex:0 0 76px}
+.primary{background:var(--ink); color:#fff}
+.primary[disabled]{opacity:.4}
+
+/* メンバー */
+.secttl{font-size:16px}
+.mt{margin-top:28px}
+.add-row{display:flex; gap:8px; margin-top:10px}
+.add-row input{flex:1; padding:12px; border:2px solid var(--line); border-radius:10px; background:var(--card); min-width:0}
+.add-row .primary{padding:0 18px; border-radius:10px; font-weight:800}
+.mlist{margin-top:12px; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.mrow{display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid #F0F2F1}
+.mrow.off{opacity:.45}
+.mname{flex:1; border:none; background:transparent; font-size:15px; font-weight:700; padding:4px 0; min-width:0}
+.mcount{font-size:12px; color:var(--ink2); font-variant-numeric:tabular-nums}
+.mtog{font-size:11px; font-weight:700; color:var(--ink2); background:#EDF1F0; padding:6px 10px; border-radius:7px}
+.switch-row{display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--card);
+  border:1px solid var(--line); border-radius:12px; padding:13px 14px; margin-top:10px}
+.switch-row div{flex:1}
+.switch-row b{font-size:14px} .switch-row small{display:block; font-size:11px; color:var(--ink2); margin-top:3px}
+.sw{flex:0 0 56px; height:32px; border-radius:99px; background:#D5DBDE; position:relative; transition:background .15s}
+.sw::after{content:""; position:absolute; top:3px; left:3px; width:26px; height:26px; border-radius:50%; background:#fff; transition:transform .15s}
+.sw.on{background:var(--ok)}
+.sw.on::after{transform:translateX(24px)}
+
+.toast{position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:60;
+  background:var(--ink); color:#fff; font-size:13px; font-weight:700; padding:11px 20px; border-radius:99px;
+  box-shadow:0 8px 24px rgba(20,30,44,.28); max-width:88%; text-align:center; line-height:1.5}
+
+/* 印刷ビュー */
+.pv{position:fixed; inset:0; background:#7B8590; z-index:50; overflow-y:auto; -webkit-overflow-scrolling:touch}
+.pv-bar{position:sticky; top:0; display:flex; gap:8px; padding:calc(env(safe-area-inset-top) + 10px) 12px 10px; background:var(--ink); z-index:2}
+.pv-bar button{flex:1; padding:12px 6px; border-radius:10px; font-size:13px; font-weight:800; background:rgba(255,255,255,.14); color:#fff}
+.pv-bar button.go{background:var(--hi); color:#3D2A00}
+.pv-note{color:#F0F3F5; font-size:11px; padding:0 14px 10px; line-height:1.6; background:var(--ink)}
+.sheetp{background:#fff; margin:14px; padding:16px; border-radius:6px; box-shadow:0 4px 18px rgba(0,0,0,.2)}
+.sheetp h1{font-size:18px; text-align:center}
+.sheetp .ph{text-align:center; font-size:11px; color:#555; margin:5px 0 14px}
+.pgrid{display:grid; grid-template-columns:repeat(7,1fr); border-top:1px solid #333; border-left:1px solid #333}
+.pwd{text-align:center; font-size:10px; font-weight:800; padding:3px 0; border-right:1px solid #333; border-bottom:1px solid #333; background:#EEE}
+.pwd.sun{color:#B3352C} .pwd.sat{color:#2B6CB0}
+.pcell{min-height:78px; border-right:1px solid #333; border-bottom:1px solid #333; padding:2px 3px}
+.pcell .pd{font-size:11px; font-weight:800; font-variant-numeric:tabular-nums}
+.pcell .pd.sun{color:#B3352C} .pcell .pd.sat{color:#2B6CB0}
+.pj{font-size:9px; line-height:1.35; margin-top:2px; border-left:2px solid #444; padding-left:3px}
+.pj b{font-weight:800}
+.pj.mine{border-left-color:#C08A00; background:#FFF8E4}
+.pfoot{margin-top:12px; font-size:9px; color:#666; text-align:right}
+
+@media print{
+  @page{size:A4 landscape; margin:8mm}
+  body{background:#fff}
+  #app>*{display:none !important}
+  #app>.pv{display:block !important; position:static; background:#fff; overflow:visible}
+  .pv-bar,.pv-note{display:none !important}
+  .sheetp{margin:0; padding:0; box-shadow:none; border-radius:0}
+  .pcell{min-height:62px}
+}
+@media (prefers-reduced-motion:reduce){ *{animation:none !important; transition:none !important} }
+.mpin.ro{display:inline-block; line-height:26px; background:#F2F5F4; color:var(--ink2); border-color:transparent}
+.notebox{background:#FFFBF0; border:1px solid #F0DFB4; border-radius:12px; padding:13px 14px; margin-top:14px}
+.notebox b{font-size:13px}
+.notebox p{font-size:12px; color:var(--ink2); line-height:1.7; margin:6px 0 0}
+.notebox code{background:#EDF1F0; padding:1px 5px; border-radius:4px; font-size:11px}
+.big-btn[disabled]{opacity:.5}
+</style>
+</head>
+<body>
+<div id="app"><div class="boot"><div class="stamp-mark"></div><p>読み込み中…</p></div></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+import { getFirestore, doc, collection, query, where, getDoc, setDoc, deleteDoc,
+         onSnapshot, deleteField, enableIndexedDbPersistence }
+  from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { firebaseConfig, ID_DOMAIN } from "./firebase-config.js";
+
+const fbApp = initializeApp(firebaseConfig);
+const auth  = getAuth(fbApp);
+const db    = getFirestore(fbApp);
+enableIndexedDbPersistence(db).catch(function(){ /* 複数タブ時などは無視 */ });
+
+/* ============================================================
+   アシストカレンダー（Firebase版）
+   ・認証：ID＋暗証番号（内部では ID@ドメイン のメールに変換）
+   ・保存：Firestore。onSnapshot で全員の画面に自動反映
+   ============================================================ */
+
+var WD=["日","月","火","水","木","金","土"];
+var GROUPS={"国":"国（国土交通省）","府":"大阪府","市":"大阪市","社協":"社会福祉協議会","民間":"民間病院","鳥取":"鳥取県","独法":"独立行政法人"};
+var FY_MONTHS=[4,5,6,7,8,9,10,11,12,1,2,3];
+
+/* ---------- 日付 ---------- */
+function pad(n){ return String(n).padStart(2,"0"); }
+function ymd(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function ymOf(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1); }
+function parseYmd(s){ var p=s.split("-").map(Number); return new Date(p[0],p[1]-1,p[2]); }
+function addMonths(ym,delta){ var p=ym.split("-").map(Number); return ymOf(new Date(p[0],p[1]-1+delta,1)); }
+function daysInMonth(ym){ var p=ym.split("-").map(Number); return new Date(p[0],p[1],0).getDate(); }
+function labelJP(s){ var d=parseYmd(s); return (d.getMonth()+1)+"月"+d.getDate()+"日("+WD[d.getDay()]+")"; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function emptyMonth(){ return {jobs:{}, avail:{}}; }
+function fyOfYm(ym){ var p=ym.split("-").map(Number); return p[1]>=4?p[0]:p[0]-1; }
+function fyLabel(fy){ return fy+"年度"; }
+function fyRange(fy){ return fy+"年4月〜"+(fy+1)+"年3月"; }
+
+/* ============================================================
+   状態
+   ============================================================ */
+var S={
+  booting:true, authed:false, config:{members:[],sites:[],services:[],showAnnualToMembers:true},
+  annualByFy:{}, fy:2026, ym:"2026-08", month:emptyMonth(), session:null,
+  openDay:null, openSite:null, tab:"home", syncedAt:null, toast:null,
+  editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
+  newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
+  fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null
+};
+var _lastTab=null;
+var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
+
+function flash(msg){ S.toast=msg; render(); setTimeout(function(){ S.toast=null; render(); },2600); }
+function memberName(id,job){
+  var m=(S.config.members||[]).find(function(x){return x.id===id;});
+  if(m) return m.name;
+  if(job && job.assigned && job.assignedNames){
+    var i=job.assigned.indexOf(id);
+    if(i>=0 && job.assignedNames[i]) return job.assignedNames[i];
+  }
+  return NAMES[id]||"—";
+}
+function meId(){ return S.session&&S.session.memberId?S.session.memberId:null; }
+function isAdmin(){ return S.session&&S.session.role==="admin"; }
+function siteById(id){ return (S.config.sites||[]).find(function(s){return s.id===id;}); }
+function annualOf(fy){ return S.annualByFy[fy===undefined?S.fy:fy]||{}; }
+function plansOf(id,fy){ return annualOf(fy)[id]||[]; }
+function monthsOf(id,fy){ var set={}; plansOf(id,fy).forEach(function(p){ (p.months||[]).forEach(function(m){ set[m]=true; }); }); return set; }
+function canSeeAnnual(){ return isAdmin() || S.config.showAnnualToMembers!==false; }
+
+/* ============================================================
+   認証
+   ============================================================ */
+function idToEmail(loginId){ return String(loginId).trim().toLowerCase()+"@"+ID_DOMAIN; }
+
+async function doLogin(loginId, password){
+  S.loginBusy=true; S.loginErr=""; render();
+  try{
+    await signInWithEmailAndPassword(auth, idToEmail(loginId), password);
+  }catch(e){
+    S.loginErr = (e && e.code==="auth/too-many-requests")
+      ? "試行が多すぎます。しばらく待ってからお試しください"
+      : "IDか暗証番号が違います。管理者にご確認ください";
+    S.loginBusy=false; render();
+  }
+}
+
+onAuthStateChanged(auth, async function(user){
+  unsubAll();
+  if(!user){
+    S.session=null; S.authed=false; S.booting=false; S.loginBusy=false;
+    S.config={members:[],sites:[],services:[],showAnnualToMembers:true};
+    S.annualByFy={}; S.month=emptyMonth(); NAMES={};
+    render(); return;
+  }
+  try{
+    var meDoc=await getDoc(doc(db,"uids",user.uid));
+    if(!meDoc.exists()){
+      S.err="このアカウントには利用者の登録がありません。管理者にご連絡ください。";
+      await signOut(auth); return;
+    }
+    var me=meDoc.data();
+    S.session = me.role==="admin" ? {role:"admin"} : {role:"member", memberId:me.memberId};
+    S.authed=true; S.booting=false; S.loginBusy=false; S.loginId=""; S.memberPin="";
+    var now=ymOf(new Date());
+    S.ym = now<"2026-04" ? "2026-04" : now;
+    S.fy = fyOfYm(S.ym);
+    S.tab = isAdmin() ? "list" : "home";
+    subscribeConfig();
+    subscribeMonth(S.ym);
+    subscribeAnnual(S.fy);
+    render();
+  }catch(e){
+    S.err="読み込みに失敗しました（"+(e.code||e.message||e)+"）";
+    S.booting=false; render();
+  }
+});
+
+/* ============================================================
+   Firestore 購読（変更は全員の画面に自動で流れる）
+   ============================================================ */
+var subs={config:[], month:[], annual:[]};
+function unsub(kind){ (subs[kind]||[]).forEach(function(f){ try{f();}catch(e){} }); subs[kind]=[]; }
+function unsubAll(){ Object.keys(subs).forEach(unsub); }
+
+function subscribeConfig(){
+  unsub("config");
+  subs.config.push(onSnapshot(doc(db,"config","app"), function(d){
+    var v=d.data()||{};
+    S.config.services=v.services||[];
+    S.config.showAnnualToMembers=v.showAnnualToMembers!==false;
+    render();
+  }, err));
+  subs.config.push(onSnapshot(doc(db,"config","sites"), function(d){
+    S.config.sites=(d.data()||{}).list||[]; render();
+  }, function(){ /* 協力者に非公開の設定なら読めない＝空でよい */ }));
+
+  if(isAdmin()){
+    subs.config.push(onSnapshot(collection(db,"members"), function(snap){
+      var list=[]; snap.forEach(function(d){ list.push(Object.assign({id:d.id}, d.data())); });
+      list.sort(function(a,b){ return String(a.loginId).localeCompare(String(b.loginId)); });
+      S.config.members=list; render();
+    }, err));
+  }else{
+    subs.config.push(onSnapshot(doc(db,"members",meId()), function(d){
+      S.config.members = d.exists()? [Object.assign({id:d.id}, d.data())] : [];
+      render();
+    }, err));
+  }
+}
+
+function subscribeMonth(ym){
+  unsub("month");
+  S.month=emptyMonth();
+  var jobsRef=collection(db,"months",ym,"jobs");
+  var q = isAdmin() ? jobsRef : query(jobsRef, where("assigned","array-contains", meId()));
+  subs.month.push(onSnapshot(q, function(snap){
+    var jobs={};
+    snap.forEach(function(d){
+      var j=Object.assign({id:d.id}, d.data());
+      (j.assigned||[]).forEach(function(id,i){ if((j.assignedNames||[])[i]) NAMES[id]=j.assignedNames[i]; });
+      (jobs[j.date]=jobs[j.date]||[]).push(j);
+    });
+    Object.keys(jobs).forEach(function(k){
+      jobs[k].sort(function(a,b){ return (a.start||"zz").localeCompare(b.start||"zz"); });
+    });
+    S.month.jobs=jobs; S.syncedAt=new Date(); render();
+  }, err));
+
+  if(isAdmin()){
+    subs.month.push(onSnapshot(collection(db,"months",ym,"avail"), function(snap){
+      var av={}; snap.forEach(function(d){ av[d.id]=(d.data()||{}).d||{}; });
+      S.month.avail=av; S.syncedAt=new Date(); render();
+    }, err));
+  }else{
+    subs.month.push(onSnapshot(doc(db,"months",ym,"avail",meId()), function(d){
+      var av={}; av[meId()]=(d.data()||{}).d||{};
+      S.month.avail=av; S.syncedAt=new Date(); render();
+    }, err));
+  }
+}
+
+function subscribeAnnual(fy){
+  unsub("annual");
+  subs.annual.push(onSnapshot(doc(db,"annual",String(fy)), function(d){
+    S.annualByFy[fy]=(d.data()||{}).plans||{}; render();
+  }, function(){ S.annualByFy[fy]={}; render(); }));
+}
+
+function err(e){
+  if(e && e.code==="permission-denied") return;   /* 権限外は静かに無視 */
+  S.toast="通信でエラーが出ました（"+((e&&e.code)||"unknown")+"）"; render();
+}
+
+/* ============================================================
+   書き込み
+   ============================================================ */
+async function setAvail(memberId, date, value){
+  var ref=doc(db,"months",S.ym,"avail",memberId);
+  var patch={};
+  patch["d."+date] = (value===null? deleteField() : value);
+  try{ await setDoc(ref, {}, {merge:true}); await setDoc(ref, patch, {merge:true}); }
+  catch(e){ flash("保存できませんでした（"+(e.code||"")+"）"); }
+}
+async function saveJob(job){
+  var names=(job.assigned||[]).map(function(id){ return memberName(id); });
+  try{ await setDoc(doc(db,"months",S.ym,"jobs",job.id),
+        {date:S.openDay, site:job.site, start:job.start||"", need:job.need||0,
+         assigned:job.assigned||[], assignedNames:names, note:job.note||""}); }
+  catch(e){ flash("保存できませんでした（"+(e.code||"")+"）"); }
+}
+async function removeJob(jobId){
+  try{ await deleteDoc(doc(db,"months",S.ym,"jobs",jobId)); }
+  catch(e){ flash("けせませんでした（"+(e.code||"")+"）"); }
+}
+async function saveAnnual(fy, plans){
+  try{ await setDoc(doc(db,"annual",String(fy)), {plans:plans}, {merge:false}); }
+  catch(e){ flash("保存できませんでした（"+(e.code||"")+"）"); }
+}
+async function saveAppConfig(patch){
+  try{ await setDoc(doc(db,"config","app"), patch, {merge:true}); }
+  catch(e){ flash("保存できませんでした（"+(e.code||"")+"）"); }
+}
+async function saveMember(id, patch){
+  try{ await setDoc(doc(db,"members",id), patch, {merge:true}); }
+  catch(e){ flash("保存できませんでした（"+(e.code||"")+"）"); }
+}
+
+/* ============================================================
+   描画
+   ============================================================ */
+function render(){
+  var el=document.getElementById("app");
+  if(S.booting){ el.innerHTML='<div class="boot"><div class="stamp-mark"></div><p>読み込み中…</p></div>'; return; }
+  if(!S.authed && S.session===null && false){}
+  var y = window.scrollY || (document.documentElement&&document.documentElement.scrollTop) || 0;
+  var toTop = S.scrollTop || S.tab!==_lastTab;
+  _lastTab=S.tab; S.scrollTop=false;
+  el.innerHTML = (S.authed && S.session) ? viewApp() : viewLogin();
+  if(window.scrollTo) window.scrollTo(0, toTop?0:y);
+}
+
+function viewLogin(){
+  return '<div class="login"><div class="login-head"><div class="stamp-mark"></div>'+
+    '<h1>アシストカレンダー</h1><p class="sub">定期清掃　作業予定表</p></div>'+
+    (S.err?'<p class="err" style="text-align:center">'+esc(S.err)+'</p>':'')+
+    '<div class="login-list">'+
+      '<p class="lead">ID</p>'+
+      '<input class="pin" inputmode="numeric" autocomplete="username" maxlength="12" placeholder="････" value="'+esc(S.loginId)+'" data-field="loginId">'+
+      '<p class="lead">暗証番号</p>'+
+      '<input class="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="20" placeholder="••••••" value="'+esc(S.memberPin)+'" data-field="memberPin">'+
+      (S.loginErr?'<p class="err">'+esc(S.loginErr)+'</p>':'')+
+      '<button class="big-btn primary" data-act="login"'+(S.loginBusy?" disabled":"")+'>'+
+        '<span class="big-btn-t">'+(S.loginBusy?"確認中…":"はいる")+'</span></button>'+
+    '</div>'+
+    '<p class="foot-note">IDと暗証番号は管理者からお受け取りください。<br>暗証番号を忘れたときは管理者が再発行できます。</p></div>';
+}
+
+function viewApp(){
+  var adm=isAdmin();
+  var who=adm?"管理者":(memberName(S.session.memberId)||"協力者");
+  var sync=pending()||saving ? "保存中…"
+    : (S.syncedAt?pad(S.syncedAt.getHours())+":"+pad(S.syncedAt.getMinutes())+" 更新":"");
+  var h='<header class="hd"><div><div class="hd-title">アシストカレンダー</div>'+
+    '<div class="hd-who'+(adm?" adm":"")+'">'+esc(who)+'</div></div><div class="hd-r">'+
+    '<button class="icon-btn" data-act="refresh"><span class="'+((pending()||saving)?"spin":"")+'">⟳</span></button>'+
+    '<span class="synced">'+sync+'</span><button class="icon-btn" data-act="logout">⏻</button></div></header>';
+
+  if(!STORE_OK) h+='<div class="banner">共有の保存先が使えないため、この端末の中だけに一時保存しています。ほかの人には届きません。</div>';
+
+  var tabs = adm
+    ? [["list","予定"],["grid","配置表"],["annual","年間予定"],["sites","契約先"],["team","メンバー"]]
+    : [["home","出欠カレンダー"],["list","予定リスト"]].concat(canSeeAnnual()?[["annual","年間予定"]]:[]);
+  h+='<nav class="tabs">'+tabs.map(function(t){
+    return '<button class="tab'+(S.tab===t[0]?" on":"")+'" data-act="tab" data-v="'+t[0]+'">'+t[1]+'</button>';
+  }).join("")+'</nav><main class="main">';
+
+  if(S.tab==="home") h+=viewHome();
+  else if(S.tab==="list"||S.tab==="calendar") h+=viewList();
+  else if(S.tab==="grid") h+=(adm?viewGrid():viewList());
+  else if(S.tab==="annual") h+=viewAnnual();
+  else if(S.tab==="sites") h+=viewSites();
+  else h+=viewTeam();
+  h+='</main>';
+
+  if(S.openDay) h+=viewDaySheet();
+  if(S.openSite) h+=viewSiteSheet();
+  if(S.printing) h+=viewPrint();
+  if(S.toast) h+='<div class="toast">'+esc(S.toast)+'</div>';
+  return h;
+}
+
+function fyBar(){
+  var adm=isAdmin(), curFy=fyOfYm(ymOf(new Date()));
+  var next=S.fy+1, hasNext=S.annualByFy[next]&&Object.keys(S.annualByFy[next]).length;
+  return '<div class="fybar">'+
+    '<button class="fynav" data-act="fy" data-v="-1">‹</button>'+
+    '<span class="fylab">'+fyLabel(S.fy)+'</span>'+
+    '<button class="fynav" data-act="fy" data-v="1">›</button>'+
+    '<span class="fyrange">'+fyRange(S.fy)+'</span>'+
+    (S.fy<curFy?'<span class="fypast">過去</span>':'')+
+    (adm?'<button class="fyroll'+(S.fyConfirm?" warn":"")+'" data-act="fy-roll">'+
+      (S.fyConfirm?(hasNext?fyLabel(next)+"を上書きする？":fyLabel(next)+"へコピーする？"):"年度更新")+'</button>':'')+
+  '</div>';
+}
+
+function monthBar(right){
+  var p=S.ym.split("-");
+  return '<div class="mbar"><button class="mnav" data-act="mon" data-v="-1">‹</button>'+
+    '<div class="mlabel"><span class="my">'+p[0]+'</span><span class="mm">'+Number(p[1])+'</span><span class="mu">月</span></div>'+
+    '<button class="mnav" data-act="mon" data-v="1">›</button><div class="mbar-right">'+(right||"")+'</div></div>';
+}
+
+/* ---------- 協力者ホーム：カレンダー＋縦長の日付表 ---------- */
+function viewHome(){
+  var me=meId();
+  var h=monthBar('<span class="pill okp" data-act="noop">'+countMine()+'件 担当</span>');
+  h+='<button class="pdf-btn" data-act="print">予定を確認する（PDF）</button>';
+  h+=calendarGrid();
+  h+='<div class="dsect"><h3>出られる日を入れる</h3>'+
+     '<p class="hint">右の○✕をおすだけ。上のカレンダーにすぐ反映されます。日付をおすと現場の詳しい内容が見られます。</p>'+
+     '<div class="dtable">';
+  var total=daysInMonth(S.ym), today=ymd(new Date());
+  for(var d=1; d<=total; d++){
+    var date=S.ym+"-"+pad(d), dow=parseYmd(date).getDay();
+    var st=((S.month.avail||{})[me]||{})[date];
+    var jobs=(S.month.jobs||{})[date]||[];
+    var mine=jobs.filter(function(j){return (j.assigned||[]).indexOf(me)>=0;});
+    var mid = mine.length
+      ? '<b>'+esc(mine.map(function(j){return j.site;}).join("・"))+'</b>'+esc(mine[0].start||"時間未定")+(mine.length>1?" ほか":"")
+      : "予定なし";
+    h+='<div class="drow'+(date===today?" today":"")+(dow===0?" sunbg":dow===6?" satbg":"")+'">'+
+      '<button class="ddate '+(dow===0?"sun":dow===6?"sat":"")+'" data-act="day" data-v="'+date+'">'+
+        '<b>'+d+'</b><small>'+WD[dow]+'</small></button>'+
+      '<div class="dmid">'+mid+'</div><div class="dbtns">'+
+        '<button class="db ok'+(st==="ok"?" on":"")+'" data-act="avail" data-id="'+me+'" data-v="ok" data-d="'+date+'">○</button>'+
+        '<button class="db ng'+(st==="ng"?" on":"")+'" data-act="avail" data-id="'+me+'" data-v="ng" data-d="'+date+'">✕</button>'+
+      '</div></div>';
+  }
+  return h+'</div></div>';
+}
+function countMine(){
+  var me=meId(), n=0;
+  Object.keys(S.month.jobs||{}).forEach(function(k){
+    S.month.jobs[k].forEach(function(j){ if((j.assigned||[]).indexOf(me)>=0) n++; });
+  });
+  return n;
+}
+
+/* ---------- カレンダー本体 ---------- */
+function calendarGrid(){
+  var p=S.ym.split("-").map(Number);
+  var lead=new Date(p[0],p[1]-1,1).getDay(), total=daysInMonth(S.ym);
+  var today=ymd(new Date()), me=meId(), adm=isAdmin();
+  var cells=[]; for(var i=0;i<lead;i++) cells.push(null);
+  for(var d=1;d<=total;d++) cells.push(S.ym+"-"+pad(d));
+  while(cells.length%7!==0) cells.push(null);
+
+  var h='<div class="wd-row">'+WD.map(function(w,i){
+    return '<div class="wd '+(i===0?"sun":i===6?"sat":"")+'">'+w+'</div>'; }).join("")+'</div><div class="grid">';
+  h+=cells.map(function(date){
+    if(!date) return '<div class="cell empty"></div>';
+    var jobs=(S.month.jobs||{})[date]||[], dow=parseYmd(date).getDay();
+    var st=me?((S.month.avail||{})[me]||{})[date]:null;
+    var mine=me?jobs.filter(function(j){return (j.assigned||[]).indexOf(me)>=0;}):[];
+    if(me) jobs=mine;   /* 協力者には自分の現場だけ */
+    var isShort=jobs.some(function(j){return (j.assigned||[]).length<(j.need||0);});
+    var cls="cell"+(date===today?" today":"")+(st==="ng"?" ngd":st==="ok"?" okd":"")+(mine.length?" mine":"");
+    var dots=jobs.slice(0,4).map(function(j){
+      return '<i class="dot'+((j.assigned||[]).length<(j.need||0)?" short":"")+
+        (me&&(j.assigned||[]).indexOf(me)>=0?" me":"")+'"></i>'; }).join("");
+    if(jobs.length>4) dots+='<i class="more">+</i>';
+    return '<button class="'+cls+'" data-act="day" data-v="'+date+'">'+
+      '<span class="dnum '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(date.slice(-2))+'</span>'+
+      (st?'<span class="cell-x '+st+'">'+(st==="ng"?"✕":"○")+'</span>':'')+
+      '<span class="dots">'+dots+'</span>'+
+      (isShort&&adm?'<span class="corner"></span>':'')+'</button>';
+  }).join("")+'</div>';
+  return h;
+}
+/* ---------- 予定リスト ---------- */
+function viewList(){
+  var me=meId(), total=daysInMonth(S.ym), today=ymd(new Date()), rows=[];
+  for(var d=1;d<=total;d++){
+    var date=S.ym+"-"+pad(d), jobs=(S.month.jobs||{})[date]||[];
+    if(me) jobs=jobs.filter(function(j){return (j.assigned||[]).indexOf(me)>=0;});
+    if(jobs.length) rows.push({date:date,jobs:jobs});
+  }
+  var adm=isAdmin(), shortCount=0;
+  Object.keys(S.month.jobs||{}).forEach(function(k){
+    S.month.jobs[k].forEach(function(j){ if((j.assigned||[]).length<(j.need||0)) shortCount++; });
+  });
+  var h=monthBar(adm
+    ? (shortCount>0?'<span class="pill short">人員不足 '+shortCount+'件</span>':'<span class="pill okp">配置ずみ</span>')
+    : (me?'<span class="pill okp">自分の予定</span>':""));
+  h+='<button class="pdf-btn" data-act="print">'+(adm?"予定表を作る（PDF）":"予定を確認する（PDF）")+'</button>';
+  if(adm){
+    h+=calendarGrid()+
+      '<div class="legend"><span><i class="dot"></i>現場あり</span>'+
+      '<span><i class="dot short"></i>人が足りない</span><span><b class="lx">✕</b>出られない人あり</span></div>'+
+      '<h2 class="secttl mt2">予定リスト</h2>';
+  }
+  if(!rows.length) h+='<div class="empty-state"><p>この月に表示できる予定はありません。</p>'+
+    '<p class="sub">カレンダーの日付をおすと、現場を追加できます。</p></div>';
+  h+='<div class="list">'+rows.map(function(r){
+    var dow=parseYmd(r.date).getDay(), st=me?((S.month.avail||{})[me]||{})[r.date]:null;
+    return '<div class="lrow'+(r.date===today?" today":"")+'">'+
+      '<button class="lhead" data-act="day" data-v="'+r.date+'">'+
+      '<span class="lday '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(r.date.slice(-2))+'<small>'+WD[dow]+'</small></span>'+
+      '<span class="lspacer"></span>'+
+      (st==="ng"?'<span class="tag ngt">出られない</span>':st==="ok"?'<span class="tag okt">出られる</span>':'')+
+      '<span class="chev">›</span></button>'+
+      r.jobs.map(function(j){
+        return '<div class="ljob"><div class="ljob-top"><span class="jtime">'+esc(j.start||"時間未定")+'</span>'+
+          '<span class="jsite">'+esc(j.site)+'</span><span class="jcount'+
+          ((j.assigned||[]).length<(j.need||0)?" short":"")+'">'+(j.assigned||[]).length+'/'+(j.need||0)+'人</span></div>'+
+          (me?'':'<div class="chips">'+(j.assigned||[]).map(function(id){
+            return '<span class="chip">'+esc(memberName(id)||"?")+'</span>'; }).join("")+'</div>')+'</div>';
+      }).join("")+'</div>';
+  }).join("")+'</div>';
+  return h;
+}
+
+/* ---------- 配置表（列＝協力者 / 行＝日付・現場） ---------- */
+function viewGrid(){
+  var total=daysInMonth(S.ym), today=ymd(new Date());
+  var ms=(S.config.members||[]).filter(function(m){return m.active!==false;});
+  var rows=[], counts={};
+  for(var d=1; d<=total; d++){
+    var date=S.ym+"-"+pad(d), jobs=(S.month.jobs||{})[date]||[];
+    if(!jobs.length){ rows.push({date:date, job:null, first:true}); continue; }
+    jobs.forEach(function(j,i){ rows.push({date:date, job:j, first:i===0}); });
+  }
+  Object.keys(S.month.jobs||{}).forEach(function(k){
+    S.month.jobs[k].forEach(function(j){ (j.assigned||[]).forEach(function(id){ counts[id]=(counts[id]||0)+1; }); });
+  });
+
+  var shortCount=0;
+  Object.keys(S.month.jobs||{}).forEach(function(k){
+    S.month.jobs[k].forEach(function(j){ if((j.assigned||[]).length<(j.need||0)) shortCount++; });
+  });
+
+  var h=monthBar(shortCount>0?'<span class="pill short">人員不足 '+shortCount+'件</span>':'<span class="pill okp">配置ずみ</span>');
+  h+='<div class="gwrap"><table class="gtable"><thead><tr>'+
+      '<th class="gd">日</th><th class="gs">現場・時間・人数</th>'+
+      ms.map(function(m){ return '<th class="gm"><span class="gm-n">'+esc(m.name)+'</span></th>'; }).join("")+
+    '</tr></thead><tbody>';
+  h+=rows.map(function(r){
+    var dow=parseYmd(r.date).getDay(), j=r.job;
+    var cls=(r.first?"newday ":"")+(dow===0?"sunrow":dow===6?"satrow":"")+(r.date===today?" todayrow":"");
+    var left='<td class="gd '+(dow===0?"sun":dow===6?"sat":"")+'">'+
+      (r.first?'<b>'+Number(r.date.slice(-2))+'</b><small>'+WD[dow]+'</small>':'')+'</td>';
+    if(!j){
+      return '<tr class="'+cls+'" data-act="day" data-v="'+r.date+'">'+left+
+        '<td class="gs"><small>予定なし</small></td>'+
+        ms.map(function(m){
+          var st=((S.month.avail||{})[m.id]||{})[r.date];
+          return '<td class="gcell'+(st==="ng"?" x":"")+'">'+(st==="ng"?"✕":"")+'</td>'; }).join("")+'</tr>';
+    }
+    var short=(j.assigned||[]).length<(j.need||0);
+    return '<tr class="'+cls+'" data-act="day" data-v="'+r.date+'">'+left+
+      '<td class="gs"><b>'+esc(j.site)+'</b><small class="'+(short?"short":"")+'">'+
+        esc(j.start||"時間未定")+'　'+(j.assigned||[]).length+'/'+(j.need||0)+'人</small></td>'+
+      ms.map(function(m){
+        var on=(j.assigned||[]).indexOf(m.id)>=0;
+        var st=((S.month.avail||{})[m.id]||{})[r.date];
+        return '<td class="gcell'+(on?" on":(st==="ng"?" x":""))+'">'+(on?"○":(st==="ng"?"✕":""))+'</td>';
+      }).join("")+'</tr>';
+  }).join("");
+  h+='</tbody><tfoot><tr class="gfoot"><th class="gd">計</th><th class="gs">この月の件数</th>'+
+     ms.map(function(m){ return '<td>'+(counts[m.id]||0)+'</td>'; }).join("")+'</tr></tfoot></table></div>';
+  h+='<p class="ghint">日付・現場名は左に、協力者名は上に固定しています。横にスクロールすると全員ぶん見られます。'+
+     '○＝配置、✕＝その日は出られない。行をおすと、その日の内容を直せます。</p>';
+  return h;
+}
+
+/* ---------- 年間予定 ---------- */
+function viewAnnual(){
+  var adm=isAdmin(), curM=Number(S.ym.split("-")[1]), inFy=(fyOfYm(S.ym)===S.fy);
+  var sites=(S.config.sites||[]).filter(function(s){
+    if(S.siteGroup!=="all" && s.group!==S.siteGroup) return false;
+    if(S.siteQuery && (s.name+s.area).indexOf(S.siteQuery)<0) return false;
+    var ms=monthsOf(s.id);
+    if(S.annMonth && !ms[S.annMonth]) return false;
+    if(!S.annMonth && !Object.keys(ms).length && !adm) return false;
+    return true;
+  });
+  var all=(S.config.sites||[]).length;
+  var planned=(S.config.sites||[]).filter(function(s){ return Object.keys(monthsOf(s.id)).length; }).length;
+  var thisMonth=inFy?(S.config.sites||[]).filter(function(s){ return monthsOf(s.id)[curM]; }).length:0;
+
+  var h='<h2 class="secttl">年間の履行スケジュール</h2>'+fyBar()+
+    '<p class="asum">計画ずみ '+planned+'／'+all+'施設'+
+    (inFy?'　・　'+curM+'月に予定のある施設 '+thisMonth+'件':'')+(adm?'':'　（閲覧のみ）')+'</p>'+
+    '<div class="filters">'+
+      '<select data-field="annMonth"><option value="0"'+(S.annMonth===0?" selected":"")+'>すべての月</option>'+
+        FY_MONTHS.map(function(m){
+          return '<option value="'+m+'"'+(S.annMonth===m?" selected":"")+'>'+m+'月に予定</option>'; }).join("")+'</select>'+
+      '<select data-field="siteGroup"><option value="all"'+(S.siteGroup==="all"?" selected":"")+'>すべての契約先</option>'+
+        Object.keys(GROUPS).map(function(g){
+          return '<option value="'+g+'"'+(S.siteGroup===g?" selected":"")+'>'+GROUPS[g]+'</option>'; }).join("")+'</select>'+
+      '<input placeholder="施設名でさがす" value="'+esc(S.siteQuery)+'" data-field="siteQuery">'+
+    '</div>';
+
+  if(!sites.length) return h+'<div class="empty-state"><p>あてはまる施設がありません。</p>'+
+    (adm?'<p class="sub">「契約先」タブで履行内容と月を登録してください。</p>':'')+'</div>';
+
+  h+='<div class="ascroll"><table class="atable"><thead><tr><th class="sname">施設</th>'+
+     FY_MONTHS.map(function(m){return '<th>'+m+'</th>';}).join("")+'</tr></thead><tbody>';
+  h+=sites.map(function(s){
+    var ms=monthsOf(s.id), n=plansOf(s.id).length;
+    return '<tr data-act="site" data-id="'+s.id+'"><td class="sname"><b>'+esc(s.name)+'</b>'+
+      '<small>'+esc(s.area)+(n?'　'+n+'項目':'　未設定')+'</small></td>'+
+      FY_MONTHS.map(function(m){
+        return '<td class="mcell'+(ms[m]?" on":"")+((inFy&&m===curM)?" cur":"")+'">'+(ms[m]?"●":"")+'</td>'; }).join("")+'</tr>';
+  }).join("")+'</tbody></table></div>'+
+  '<p class="hint">左から4月・5月…と年度の順に並んでいます。'+
+  (adm?'行をおすと、その施設の履行内容と月を編集できます。':'行をおすと、履行内容がくわしく見られます。')+'</p>';
+  return h;
+}
+
+/* ---------- 契約先 ---------- */
+function viewSites(){
+  var sites=(S.config.sites||[]).filter(function(s){
+    if(S.siteGroup!=="all" && s.group!==S.siteGroup) return false;
+    if(S.siteQuery && (s.name+s.area).indexOf(S.siteQuery)<0) return false;
+    return true;
+  });
+  var h='<h2 class="secttl">契約先（'+(S.config.sites||[]).length+'施設）</h2>'+fyBar()+
+    '<p class="asum">施設をおすと、履行内容（ワックス・窓ガラス・高所など）と実施する月を登録できます。</p>'+
+    '<div class="filters">'+
+      '<select data-field="siteGroup"><option value="all"'+(S.siteGroup==="all"?" selected":"")+'>すべて</option>'+
+        Object.keys(GROUPS).map(function(g){
+          return '<option value="'+g+'"'+(S.siteGroup===g?" selected":"")+'>'+GROUPS[g]+'</option>'; }).join("")+'</select>'+
+      '<input placeholder="施設名でさがす" value="'+esc(S.siteQuery)+'" data-field="siteQuery"></div>';
+
+  var groups={};
+  sites.forEach(function(s){ (groups[s.group]=groups[s.group]||[]).push(s); });
+  h+=Object.keys(GROUPS).filter(function(g){return groups[g];}).map(function(g){
+    return '<div class="sgroup"><h3>'+GROUPS[g]+'（'+groups[g].length+'）</h3>'+groups[g].map(function(s){
+      var n=plansOf(s.id).length;
+      return '<button class="scard" data-act="site" data-id="'+s.id+'"><span class="scard-m">'+
+        '<b>'+esc(s.name)+'</b><small>'+esc(s.area)+'</small></span>'+
+        '<span class="cnt'+(n?"":" zero")+'">'+(n?n+"項目":"未設定")+'</span></button>';
+    }).join("")+'</div>';
+  }).join("");
+
+  h+='<h2 class="secttl mt">履行内容の種類</h2>'+
+    '<p class="hint">ここに足した種類が、施設ごとの登録でえらべるようになります。</p>'+
+    '<div class="svc-pick">'+(S.config.services||[]).map(function(sv){
+      return '<button class="svc del" data-act="svc-del" data-v="'+esc(sv)+'">'+esc(sv)+' ✕</button>'; }).join("")+'</div>'+
+    '<div class="add-row"><input placeholder="例：貯水槽清掃" value="'+esc(S.newService)+'" data-field="newService">'+
+      '<button class="primary" data-act="svc-add">追加</button></div>';
+  return h;
+}
+
+/* ---------- 施設シート ---------- */
+function viewSiteSheet(){
+  var s=siteById(S.openSite); if(!s) return "";
+  var adm=isAdmin(), plans=plansOf(s.id), curM=Number(S.ym.split("-")[1]);
+  var inFy=(fyOfYm(S.ym)===S.fy);
+  var h='<div class="sheet-wrap" data-act="close-bg"><div class="sheet">'+
+    '<div class="sheet-hd"><h2>'+esc(s.name)+'<small>'+esc(GROUPS[s.group]||s.group)+'　'+esc(s.area)+'　'+fyLabel(S.fy)+'</small></h2>'+
+    '<button class="close" data-act="close">✕</button></div><div class="sheet-body">';
+
+  h+='<section class="blk"><div class="blk-hd"><h3>履行内容と実施月</h3>'+
+    (adm?'<button class="add" data-act="plan-add-open" data-id="'+s.id+'">＋ 追加</button>':'')+'</div>';
+  if(!plans.length) h+='<p class="hint">まだ登録がありません。'+(adm?'「＋ 追加」からえらんでください。':'')+'</p>';
+  h+=plans.map(function(p){
+    return '<div class="plan"><div class="plan-hd"><b>'+esc(p.service)+'</b>'+
+      (adm?'<button class="plan-del" data-act="plan-del" data-id="'+p.id+'">けす</button>':'')+'</div>'+
+      '<div class="mchips">'+FY_MONTHS.map(function(m){
+        var on=(p.months||[]).indexOf(m)>=0;
+        return adm
+          ? '<button class="mchip'+(on?" on":"")+'" data-act="plan-month" data-id="'+p.id+'" data-v="'+m+'">'+m+'</button>'
+          : '<span class="mchip'+(on?" on":"")+'">'+m+'</span>';
+      }).join("")+'</div>'+
+      ((p.months||[]).length?'<p class="hint">'+(p.months||[]).slice().sort(function(a,b){return a-b;}).join("・")+'月に実施'+
+        ((inFy&&(p.months||[]).indexOf(curM)>=0)?'（今えらんでいる'+curM+'月に該当）':'')+'</p>'
+        :'<p class="hint">月をえらんでください。</p>')+'</div>';
+  }).join("");
+
+  if(adm && S.addingPlanTo===s.id){
+    var used={}; plans.forEach(function(p){used[p.service]=true;});
+    h+='<div class="plan"><b>どの履行内容を追加しますか</b><div class="svc-pick">'+
+      (S.config.services||[]).map(function(sv){
+        return '<button class="svc"'+(used[sv]?' disabled style="opacity:.35"':'')+' data-act="plan-add" data-id="'+s.id+'" data-v="'+esc(sv)+'">'+esc(sv)+'</button>';
+      }).join("")+'</div>'+
+      '<div class="add-row"><input placeholder="ほかの内容を直接入力" value="'+esc(S.newService)+'" data-field="newService">'+
+      '<button class="primary" data-act="plan-add-new" data-id="'+s.id+'">追加</button></div>'+
+      '<p class="hint"><button class="link" data-act="plan-add-close">やめる</button></p></div>';
+  }
+  h+='</section>';
+
+  if(adm){
+    h+='<section class="blk"><h3>この施設で現場を組む</h3>'+
+      '<p class="hint">カレンダーの日付をひらいて「＋ 現場を追加」から、この施設名をえらべます。</p></section>';
+  }
+  return h+'</div></div></div>';
+}
+
+/* ---------- メンバー ---------- */
+function viewTeam(){
+  var counts={};
+  Object.keys(S.month.jobs||{}).forEach(function(k){
+    S.month.jobs[k].forEach(function(j){ (j.assigned||[]).forEach(function(id){ counts[id]=(counts[id]||0)+1; }); });
+  });
+  var p=S.ym.split("-");
+  return '<h2 class="secttl">メンバー</h2>'+
+    '<p class="hint">名前をなおすと、その人の画面にもすぐ反映されます（過去の割り当ては内部のIDで結んでいるので崩れません）。'+
+    p[0]+'年'+Number(p[1])+'月の割り当て件数を右に出しています。</p>'+
+    '<div class="mlist">'+(S.config.members||[]).map(function(m){
+      return '<div class="mrow'+(m.active===false?" off":"")+'">'+
+        '<input class="mname" value="'+esc(m.name)+'" data-field="rename" data-id="'+m.id+'">'+
+        '<span><span class="mpin ro">'+esc(m.loginId||"")+'</span><small class="mpin-h">ID</small></span>'+
+        '<span class="mcount">'+(counts[m.id]||0)+'件</span>'+
+        '<button class="mtog" data-act="member-toggle" data-id="'+m.id+'">'+(m.active===false?"もどす":"休止")+'</button></div>';
+    }).join("")+'</div>'+
+    '<div class="notebox"><b>メンバーの追加・暗証番号の再発行</b>'+
+      '<p>ログイン情報はFirebaseが管理しています。追加や暗証番号の変更は、Firebaseコンソールの「Authentication」か、'+
+      'リポジトリの <code>scripts/seed.mjs</code> から行ってください。手順はREADMEに書いています。</p></div>'+
+    '<h2 class="secttl mt">協力者に見せるもの</h2>'+
+    '<div class="switch-row"><div><b>年間の履行スケジュール</b>'+
+      '<small>協力者の画面に「年間予定」タブを出します。閲覧のみで、編集はできません。</small></div>'+
+      '<button class="sw'+(S.config.showAnnualToMembers!==false?" on":"")+'" data-act="toggle-annual"></button></div>'+
+    '<p class="hint">この切り替えはサーバー側の権限にも連動します。オフのあいだは、協力者は年間予定も契約先一覧も読み取れません。</p>';
+}
+
+/* ---------- 日の詳細 ---------- */
+function viewDaySheet(){
+  var date=S.openDay, me=meId(), adm=isAdmin();
+  var jobs=(S.month.jobs||{})[date]||[];
+  var body=S.editing?viewEditor(date):viewDay(date,jobs,me,adm);
+  return '<div class="sheet-wrap" data-act="close-bg"><div class="sheet">'+
+    '<div class="sheet-hd"><h2>'+labelJP(date)+'</h2><button class="close" data-act="close">✕</button></div>'+
+    '<div class="sheet-body">'+body+'</div></div></div>';
+}
+function stampSvg(kind){
+  return '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" class="ring"/>'+
+    (kind==="ok"?'<circle cx="50" cy="50" r="26" class="ring"/>'
+      :'<line x1="30" y1="30" x2="70" y2="70" class="ring"/><line x1="70" y1="30" x2="30" y2="70" class="ring"/>')+'</svg>';
+}
+function viewDay(date,jobs,me,adm){
+  var h="", st=me?((S.month.avail||{})[me]||{})[date]:null;
+  if(me){
+    h+='<section class="blk"><h3>この日は出られますか</h3><div class="stamp-row">'+
+      '<button class="stamp ok'+(st==="ok"?" on":"")+'" data-act="avail" data-id="'+me+'" data-v="ok" data-d="'+date+'">'+
+        stampSvg("ok")+'<span>出られる</span></button>'+
+      '<button class="stamp ng'+(st==="ng"?" on":"")+'" data-act="avail" data-id="'+me+'" data-v="ng" data-d="'+date+'">'+
+        stampSvg("ng")+'<span>出られない</span></button></div>'+
+      '<p class="hint">'+(st==="ok"?"出られる日として管理者に伝わっています。":st==="ng"?"出られない日として管理者に伝わっています。"
+        :"どちらかをおすと、すぐ管理者の画面に反映されます。もう一度おすと取り消せます。")+'</p></section>';
+    var mine=jobs.filter(function(j){return (j.assigned||[]).indexOf(me)>=0;});
+    h+='<section class="blk"><h3>自分の現場</h3>'+(mine.length?mine.map(function(j){
+      var w=(j.assigned||[]).filter(function(id){return id!==me;}).map(function(id){return memberName(id,j);}).join("、")||"—";
+      return '<div class="mycard"><div class="mytime">'+esc(j.start||"時間未定")+'</div>'+
+        '<div class="mysite">'+esc(j.site)+'</div><div class="mywith">いっしょに：'+esc(w)+'</div>'+
+        (j.note?'<div class="mynote">'+esc(j.note)+'</div>':'')+'</div>';
+    }).join(""):'<p class="hint">この日の割り当てはまだありません。</p>')+'</section>';
+  }
+  if(!adm) return h;
+  h+='<section class="blk"><div class="blk-hd"><h3>現場（'+jobs.length+'件）</h3>'+
+    '<button class="add" data-act="job-new">＋ 現場を追加</button></div>';
+  if(!jobs.length) h+='<p class="hint">まだ登録がありません。</p>';
+  h+=jobs.map(function(j){
+    var short=(j.assigned||[]).length<(j.need||0);
+    var conf=(j.assigned||[]).filter(function(id){ return (((S.month.avail||{})[id]||{})[date])==="ng"; });
+    return '<div class="jcard"><div class="jcard-top"><span class="jtime">'+esc(j.start||"時間未定")+'</span>'+
+      '<span class="jsite">'+esc(j.site)+'</span><span class="jcount'+(short?" short":"")+'">'+
+      (j.assigned||[]).length+'/'+(j.need||0)+'人</span></div><div class="chips">'+
+      ((j.assigned||[]).length?(j.assigned||[]).map(function(id){
+        var bad=(((S.month.avail||{})[id]||{})[date])==="ng";
+        return '<span class="chip'+(id===me?" me":"")+(bad?" warn":"")+'">'+esc(memberName(id)||"?")+'</span>';
+      }).join(""):'<span class="chip none">未割り当て</span>')+'</div>'+
+      (conf.length?'<p class="warnline">⚠ '+esc(conf.map(function(id){return memberName(id);}).join("、"))+' は出られない日です</p>':'')+
+      (j.note?'<p class="jnote">'+esc(j.note)+'</p>':'')+
+      (adm?'<button class="edit" data-act="job-edit" data-id="'+j.id+'">編集</button>':'')+'</div>';
+  }).join("")+'</section>';
+  if(adm){
+    var draft=S.availDraft||{}, ndraft=Object.keys(draft).length;
+    h+='<section class="blk"><h3>全員の出欠（代理入力できます）</h3>'+
+      '<p class="hint">スマホが苦手な方のぶんは、ここから入れてあげてください。えらんだあと「保存する」をおすと反映されます。</p><div class="av-list">'+
+      (S.config.members||[]).filter(function(m){return m.active!==false;}).map(function(m){
+        var saved=((S.month.avail||{})[m.id]||{})[date];
+        var has=Object.prototype.hasOwnProperty.call(draft,m.id);
+        var s2=has?draft[m.id]:saved;
+        var here=jobs.some(function(j){return (j.assigned||[]).indexOf(m.id)>=0;});
+        return '<div class="av-row"><span class="av-name">'+esc(m.name)+(here?'<i class="av-badge">配置</i>':'')+'</span>'+
+          '<span class="av-btns"><button class="av-b ok'+(s2==="ok"?" on":"")+(has?" draft":"")+'" data-act="avail-draft" data-id="'+m.id+'" data-v="ok" data-d="'+date+'">○</button>'+
+          '<button class="av-b ng'+(s2==="ng"?" on":"")+(has?" draft":"")+'" data-act="avail-draft" data-id="'+m.id+'" data-v="ng" data-d="'+date+'">✕</button></span></div>';
+      }).join("")+'</div>'+
+      (ndraft?'<div class="save-bar"><span>未保存 '+ndraft+'人</span>'+
+        '<button class="cancel" data-act="avail-cancel">取り消す</button>'+
+        '<button class="save" data-act="avail-save" data-d="'+date+'">保存する</button></div>':'')+
+      '</section>';
+  }
+  return h;
+}
+
+/* ---------- 現場の編集 ---------- */
+function viewEditor(date){
+  var e=S.editing, q=String(e.site||"").trim();
+  var sug=[];
+  if(q && q.length<12){
+    sug=(S.config.sites||[]).filter(function(s){ return s.name.indexOf(q)>=0 && s.name!==q; }).slice(0,6);
+  }
+  var rank=function(m){ var s=((S.month.avail||{})[m.id]||{})[date]; return s==="ok"?0:s==="ng"?2:1; };
+  var list=(S.config.members||[]).filter(function(m){return m.active!==false;}).slice().sort(function(a,b){return rank(a)-rank(b);});
+  var curM=Number(date.split("-")[1]), dfy=fyOfYm(date.slice(0,7));
+  var due=(S.config.sites||[]).filter(function(s){ return monthsOf(s.id,dfy)[curM]; }).slice(0,8);
+
+  return '<div class="editor"><h3>現場の内容</h3>'+
+    '<label class="f"><span>現場名（契約先から選べます）</span>'+
+      '<input value="'+esc(e.site)+'" placeholder="例：福島警察署" data-field="site"></label>'+
+    (sug.length?'<div class="sug">'+sug.map(function(s){
+      return '<button data-act="pick-site" data-v="'+esc(s.name)+'">'+esc(s.name)+'<small>'+esc(s.area)+'</small></button>';
+    }).join("")+'</div>':'')+
+    (!q&&due.length?'<p class="hint">'+curM+'月に履行予定の施設：</p><div class="sug">'+due.map(function(s){
+      return '<button data-act="pick-site" data-v="'+esc(s.name)+'">'+esc(s.name)+'<small>'+
+        esc(plansOf(s.id,dfy).filter(function(p){return (p.months||[]).indexOf(curM)>=0;}).map(function(p){return p.service;}).join("・"))+'</small></button>';
+    }).join("")+'</div>':'')+
+    '<div class="f-row"><label class="f"><span>開始時間</span>'+
+      '<input type="time" value="'+esc(e.start)+'" data-field="start"></label>'+
+      '<label class="f"><span>必要人数</span><div class="stepper">'+
+        '<button data-act="need" data-v="-1">−</button><b>'+(e.need||0)+'</b><button data-act="need" data-v="1">＋</button></div></label></div>'+
+    '<label class="f"><span>メモ（履行内容・持ち物・集合場所など）</span>'+
+      '<input value="'+esc(e.note||"")+'" placeholder="例：床ワックス" data-field="note"></label>'+
+    '<h3 class="mt">担当者　<em>'+(e.assigned||[]).length+'/'+(e.need||0)+'人</em></h3>'+
+    '<p class="hint">「出られる」と答えた人が上に並びます。</p><div class="pick-grid">'+
+    list.map(function(m){
+      var s3=((S.month.avail||{})[m.id]||{})[date], on=(e.assigned||[]).indexOf(m.id)>=0;
+      return '<button class="pick'+(on?" on":"")+(s3==="ng"?" ngv":s3==="ok"?" okv":"")+'" data-act="pick" data-id="'+m.id+'">'+
+        '<span class="pick-n">'+esc(m.name)+'</span>'+
+        (s3==="ok"?'<span class="pick-s">○</span>':s3==="ng"?'<span class="pick-s">✕</span>':'')+'</button>';
+    }).join("")+'</div>'+
+    '<div class="editor-actions"><button class="ghost" data-act="job-cancel">やめる</button>'+
+      '<button class="danger" data-act="job-delete">けす</button>'+
+      '<button class="primary" data-act="job-save"'+(!q?" disabled":"")+'>保存する</button></div></div>';
+}
+
+/* ---------- 印刷／PDF ---------- */
+function viewPrint(){
+  var me=meId(), adm=isAdmin(), showAll=adm;
+  var p=S.ym.split("-").map(Number);
+  var lead=new Date(p[0],p[1]-1,1).getDay(), total=daysInMonth(S.ym);
+  var cells=[]; for(var i=0;i<lead;i++) cells.push(null);
+  for(var d=1;d<=total;d++) cells.push(S.ym+"-"+pad(d));
+  while(cells.length%7!==0) cells.push(null);
+  var who=adm?"全員ぶん":(memberName(me)||"");
+  var now=new Date();
+
+  var grid='<div class="pgrid">'+WD.map(function(w,i){
+    return '<div class="pwd '+(i===0?"sun":i===6?"sat":"")+'">'+w+'</div>'; }).join("")+
+    cells.map(function(date){
+      if(!date) return '<div class="pcell"></div>';
+      var dow=parseYmd(date).getDay();
+      var jobs=(S.month.jobs||{})[date]||[];
+      if(!showAll&&me) jobs=jobs.filter(function(j){return (j.assigned||[]).indexOf(me)>=0;});
+      var st=me?((S.month.avail||{})[me]||{})[date]:null;
+      return '<div class="pcell"><div class="pd '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(date.slice(-2))+
+        (st==="ng"?' ✕':'')+'</div>'+jobs.map(function(j){
+          var mine=me&&(j.assigned||[]).indexOf(me)>=0;
+          var names=(j.assigned||[]).map(function(id){return memberName(id);}).join("・");
+          return '<div class="pj'+(mine?" mine":"")+'"><b>'+esc(j.start||"時間未定")+'</b> '+esc(j.site)+
+            (showAll?'<br>'+esc(names):'')+'</div>';
+        }).join("")+'</div>';
+    }).join("")+'</div>';
+
+  return '<div class="pv"><div class="pv-bar">'+
+      '<button data-act="print-close">とじる</button>'+
+      '<button class="go" data-act="print-go">PDF／印刷</button></div>'+
+    '<div class="pv-note">「PDF／印刷」をおすと印刷画面がひらきます。iPhoneでは共有メニューから「PDFとして保存」を選べます。'+
+      'ボタンが効かないときは、この画面のスクリーンショットでも同じものが残せます。</div>'+
+    '<div class="sheetp"><h1>'+p[0]+'年'+p[1]+'月　作業予定表</h1>'+
+    '<p class="ph">'+esc(who)+'　／　アシストカレンダー</p>'+grid+
+    '<p class="pfoot">出力：'+p[0]+'/'+pad(p[1])+'　'+now.getFullYear()+'/'+pad(now.getMonth()+1)+'/'+pad(now.getDate())+' '+pad(now.getHours())+':'+pad(now.getMinutes())+'</p>'+
+    '</div></div>';
+}
+
+/* ============================================================
+   操作
+   ============================================================ */
+
+/* ============================================================
+   操作
+   ============================================================ */
+document.addEventListener("click", async function(ev){
+  var t=ev.target.closest("[data-act]"); if(!t) return;
+  var act=t.getAttribute("data-act"), v=t.getAttribute("data-v"), id=t.getAttribute("data-id");
+  if(act==="close-bg" && ev.target!==t) return;
+
+  switch(act){
+    case "noop": break;
+    case "login": await doLogin(S.loginId, S.memberPin); break;
+    case "logout": await signOut(auth); break;
+    case "refresh": render(); break;
+    case "tab": S.tab=v; S.fyConfirm=false; render(); break;
+    case "mon": {
+      S.ym=addMonths(S.ym,Number(v));
+      subscribeMonth(S.ym);
+      if(fyOfYm(S.ym)!==S.fy && !S.annualByFy[fyOfYm(S.ym)]) subscribeAnnual(fyOfYm(S.ym));
+      render(); break;
+    }
+    case "day": S.openDay=v; S.editing=null; S.availDraft={}; render(); break;
+    case "site": S.openSite=id; S.addingPlanTo=null; render(); break;
+    case "close": case "close-bg": S.openDay=null; S.openSite=null; S.editing=null;
+      S.addingPlanTo=null; S.availDraft={}; render(); break;
+
+    /* 年度 */
+    case "fy": {
+      var nf=S.fy+Number(v);
+      if(nf<2015||nf>2060) break;
+      S.fy=nf; S.fyConfirm=false; subscribeAnnual(S.fy); render(); break;
+    }
+    case "fy-roll": {
+      if(!Object.keys(annualOf(S.fy)).length){ flash(fyLabel(S.fy)+"には計画が入っていないので、コピーするものがありません"); break; }
+      if(!S.fyConfirm){ S.fyConfirm=true; render(); break; }
+      var nfy=S.fy+1, copy=clone(annualOf(S.fy));
+      Object.keys(copy).forEach(function(sid){ copy[sid].forEach(function(p){ p.id=uid(); }); });
+      await saveAnnual(nfy, copy);
+      S.fy=nfy; S.fyConfirm=false; subscribeAnnual(nfy);
+      flash(fyLabel(nfy)+"に計画をコピーしました"); break;
+    }
+
+    /* 本人の出欠：押した瞬間に反映され、他の人の画面にも流れる */
+    case "avail": {
+      var date=t.getAttribute("data-d")||S.openDay;
+      var cur=((S.month.avail||{})[id]||{})[date];
+      await setAvail(id, date, cur===v ? null : v);
+      break;
+    }
+
+    /* 管理者の代理入力：えらんでから「保存する」で反映 */
+    case "avail-draft": {
+      var dd=t.getAttribute("data-d");
+      var saved=((S.month.avail||{})[id]||{})[dd];
+      var has=Object.prototype.hasOwnProperty.call(S.availDraft,id);
+      var eff=has?S.availDraft[id]:saved;
+      var nx=(eff===v)?null:v;
+      if(nx===(saved===undefined?null:saved)) delete S.availDraft[id];
+      else S.availDraft[id]=nx;
+      render(); break;
+    }
+    case "avail-cancel": S.availDraft={}; render(); break;
+    case "avail-save": {
+      var dd2=t.getAttribute("data-d"), keys=Object.keys(S.availDraft);
+      var draft=S.availDraft; S.availDraft={}; render();
+      for(var i2=0;i2<keys.length;i2++) await setAvail(keys[i2], dd2, draft[keys[i2]]);
+      flash(keys.length+"人の出欠を保存しました"); break;
+    }
+
+    /* 現場 */
+    case "job-new": S.editing={id:uid(), site:"", start:"", need:2, assigned:[], note:""}; render(); break;
+    case "job-edit": S.editing=clone(((S.month.jobs||{})[S.openDay]||[]).find(function(x){return x.id===id;})); render(); break;
+    case "job-cancel": S.editing=null; render(); break;
+    case "need": S.editing.need=Math.max(0,(S.editing.need||0)+Number(v)); render(); break;
+    case "pick-site": S.editing.site=v; render(); break;
+    case "pick": {
+      var a=S.editing.assigned||[];
+      S.editing.assigned = a.indexOf(id)>=0 ? a.filter(function(x){return x!==id;}) : a.concat([id]);
+      render(); break;
+    }
+    case "job-save": {
+      var job=clone(S.editing); job.site=String(job.site).trim(); if(!job.site) return;
+      S.editing=null; render();
+      await saveJob(job); flash("保存しました"); break;
+    }
+    case "job-delete": {
+      var jid=S.editing.id; S.editing=null; render();
+      await removeJob(jid); flash("現場をけしました"); break;
+    }
+
+    /* 年間の履行計画 */
+    case "plan-add-open": S.addingPlanTo=id; render(); break;
+    case "plan-add-close": S.addingPlanTo=null; render(); break;
+    case "plan-add": case "plan-add-new": {
+      var svc = act==="plan-add" ? v : String(S.newService||"").trim();
+      if(!svc) return;
+      if(act==="plan-add-new" && (S.config.services||[]).indexOf(svc)<0)
+        await saveAppConfig({services:(S.config.services||[]).concat([svc])});
+      var a2=clone(annualOf(S.fy));
+      a2[id]=a2[id]||[];
+      if(!a2[id].some(function(p){return p.service===svc;})) a2[id].push({id:uid(), service:svc, months:[], note:""});
+      S.newService=""; S.addingPlanTo=null;
+      await saveAnnual(S.fy, a2); break;
+    }
+    case "plan-del": {
+      var a3=clone(annualOf(S.fy)), sid3=S.openSite;
+      a3[sid3]=(a3[sid3]||[]).filter(function(p){return p.id!==id;});
+      if(!a3[sid3].length) delete a3[sid3];
+      await saveAnnual(S.fy, a3); break;
+    }
+    case "plan-month": {
+      var a4=clone(annualOf(S.fy)), mm=Number(v);
+      (a4[S.openSite]||[]).forEach(function(p){
+        if(p.id!==id) return;
+        p.months=p.months||[];
+        var k=p.months.indexOf(mm);
+        if(k>=0) p.months.splice(k,1); else p.months.push(mm);
+        p.months.sort(function(x,y){return x-y;});
+      });
+      await saveAnnual(S.fy, a4); break;
+    }
+    case "svc-add": {
+      var nv2=String(S.newService||"").trim(); if(!nv2) return;
+      if((S.config.services||[]).indexOf(nv2)>=0){ flash("すでにあります"); return; }
+      S.newService="";
+      await saveAppConfig({services:(S.config.services||[]).concat([nv2])}); break;
+    }
+    case "svc-del":
+      await saveAppConfig({services:(S.config.services||[]).filter(function(x){return x!==v;})});
+      flash("種類をけしました。登録ずみの履行内容は残ります"); break;
+
+    /* メンバー */
+    case "member-toggle": {
+      var m2=(S.config.members||[]).find(function(x){return x.id===id;});
+      await saveMember(id, {active: m2 && m2.active===false});
+      break;
+    }
+    case "toggle-annual":
+      await saveAppConfig({showAnnualToMembers: S.config.showAnnualToMembers===false});
+      break;
+
+    /* 印刷 */
+    case "print": S.printing=true; S.scrollTop=true; render(); break;
+    case "print-close": S.printing=false; render(); break;
+    case "print-go":
+      try{ window.print(); }
+      catch(e){ flash("この画面では印刷をひらけませんでした。スクリーンショットで保存してください"); }
+      break;
+  }
+});
+
+/* 入力は再描画せずに控える（打っている途中で消えないように） */
+document.addEventListener("input", function(ev){
+  var f=ev.target.getAttribute&&ev.target.getAttribute("data-field"); if(!f) return;
+  var val=ev.target.value;
+  if(f==="loginId"){ S.loginId=val; S.loginErr=""; }
+  else if(f==="memberPin"){ S.memberPin=val; S.loginErr=""; }
+  else if(f==="newService") S.newService=val;
+  else if(f==="siteQuery"){ S.siteQuery=val; clearTimeout(window.__q); window.__q=setTimeout(render,260); }
+  else if(f==="rename"){
+    var rid=ev.target.getAttribute("data-id");
+    S.config.members=(S.config.members||[]).map(function(m){ return m.id===rid?Object.assign({},m,{name:val}):m; });
+    clearTimeout(window.__rn);
+    window.__rn=setTimeout(function(){ saveMember(rid,{name:val}); },700);
+  }
+  else if(S.editing && (f==="site"||f==="start"||f==="note")){
+    S.editing[f]=val;
+    if(f==="site"){ clearTimeout(window.__s); window.__s=setTimeout(render,300); }
+  }
+});
+document.addEventListener("change", function(ev){
+  var f=ev.target.getAttribute&&ev.target.getAttribute("data-field"); if(!f) return;
+  if(f==="annMonth"){ S.annMonth=Number(ev.target.value); render(); }
+  else if(f==="siteGroup"){ S.siteGroup=ev.target.value; render(); }
+});
+document.addEventListener("keydown", function(ev){
+  if(ev.key==="Enter" && !S.authed && S.loginId && S.memberPin) doLogin(S.loginId, S.memberPin);
+});
+
+</script>
+</body>
+</html>
