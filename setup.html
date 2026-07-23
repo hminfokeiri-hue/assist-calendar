@@ -149,9 +149,17 @@ $("b1").onclick = async () => {
     say("l1", "\n次へ進んでください。", "hi");
     done("c1"); show("c2");
   } catch (e) {
-    say("l1", `✕ つながりませんでした（${e.code || e.message}）`, "er");
-    say("l1", "Firestore が作成済みか確認してください。", "er");
-    $("b1").disabled = false;
+    if (e.code === "permission-denied") {
+      // まだログインしていないので読めないだけ。つながってはいる。
+      say("l1", "✓ Firestore につながりました", "ok");
+      say("l1", "✓ ルールがはたらいています（未ログインなので読み取りは拒否）", "ok");
+      say("l1", "\n次へ進んでください。", "hi");
+      done("c1"); show("c2");
+    } else {
+      say("l1", `✕ つながりませんでした（${e.code || e.message}）`, "er");
+      say("l1", "Firestore が作成済みか確認してください。", "er");
+      $("b1").disabled = false;
+    }
   }
 };
 
