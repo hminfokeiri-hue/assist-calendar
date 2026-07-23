@@ -94,6 +94,40 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .grid{display:grid; grid-template-columns:repeat(7,1fr); gap:3px}
 .cell{position:relative; aspect-ratio:1/1.05; background:var(--card); border:1px solid var(--line);
   border-radius:8px; display:flex; flex-direction:column; align-items:center; padding:4px 2px 5px; transition:transform .1s}
+.finder{position:relative; margin-bottom:12px}
+.finder input{width:100%; padding:12px 38px 12px 13px; border:2px solid var(--line); border-radius:11px;
+  background:var(--card); font-size:15px}
+.fclear{position:absolute; right:6px; top:50%; transform:translateY(-50%); width:30px; height:30px;
+  border-radius:8px; color:var(--ink2); font-size:13px}
+.findlist{border:1px solid var(--line); border-radius:12px; overflow:hidden; margin-bottom:12px}
+.findrow{width:100%; display:flex; align-items:center; gap:9px; padding:11px 12px;
+  border-top:1px solid #F0F2F1; text-align:left; background:var(--card)}
+.findrow:first-child{border-top:none}
+.fr1{flex:1; min-width:0}
+.fr1 b{display:block; font-size:14px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.fr1 small{font-size:11px; color:var(--ink2)}
+.fr2{flex:0 0 auto; display:flex; gap:3px}
+.fm{font-style:normal; font-size:10px; font-weight:800; color:var(--ok); background:#E3F1EC;
+  padding:3px 6px; border-radius:5px}
+.fm.cur{background:var(--hi); color:#3D2A00}
+.fm.none{color:var(--ink2); background:#EDF1F0}
+
+.histttl{font-size:12px; margin:14px 0 6px; padding-left:8px; border-left:3px solid var(--ink2)}
+.histttl.fut{border-left-color:var(--ok); color:var(--ok)}
+.histttl.past{border-left-color:var(--ink2); color:var(--ink2)}
+.histlist{border:1px solid var(--line); border-radius:10px; overflow:hidden}
+.histy{font-size:10px; font-weight:800; color:var(--ink2); background:#F7F9F8; padding:5px 11px}
+.histrow{width:100%; display:flex; align-items:center; gap:10px; padding:9px 11px;
+  border-top:1px solid #F0F2F1; text-align:left; background:var(--card)}
+.histrow:first-child{border-top:none}
+.hd1{flex:0 0 52px; font-size:15px; font-weight:800; font-variant-numeric:tabular-nums}
+.hd1 small{font-size:10px; font-weight:700; color:var(--ink2); margin-left:3px}
+.hd2{flex:1; min-width:0}
+.hd2 b{display:block; font-size:12px; font-variant-numeric:tabular-nums}
+.hd2 s{display:block; text-decoration:none; font-size:11px; color:var(--ink2);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.hd2 s.none{color:#8A4508}
+
 .calbar{display:flex; justify-content:flex-end; margin-bottom:8px}
 .sw-b{width:4px; height:13px; border-radius:2px; background:var(--short); display:block}
 
@@ -523,7 +557,7 @@ var S={
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
   fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
-  imp:null, impBusy:false, impMsg:"", calRich:true
+  imp:null, impBusy:false, impMsg:"", calRich:true, hist:null, findQ:""
 };
 var _lastTab=null;
 var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
@@ -893,6 +927,7 @@ function viewList(){
     : (me?'<span class="pill okp">自分の予定</span>':""));
   h+='<button class="pdf-btn" data-act="print">'+(adm?"予定表を作る（PDF）":"予定を確認する（PDF）")+'</button>';
   if(adm){
+    h+=siteFinder();
     h+='<div class="calbar"><button class="pill toggle'+(S.calRich?" on":"")+'" data-act="cal-rich">'+
        (S.calRich?"施設名を出す":"点だけにする")+'</button></div>'+
       calendarGrid()+
@@ -1329,10 +1364,112 @@ function viewSiteSheet(){
   h+='</section>';
 
   if(adm){
+    if(S.hist && S.hist.name===s.name){
+      h+=viewHistory();
+    }else{
+      h+='<section class="blk"><div class="blk-hd"><h3>実施の記録</h3>'+
+        '<button class="add" data-act="hist-load" data-v="'+esc(s.name)+'">しらべる</button></div>'+
+        '<p class="hint">この施設が、いつ定期清掃の予定に入っていたか（これから入っているか）をしらべます。</p></section>';
+    }
     h+='<section class="blk"><h3>この施設で現場を組む</h3>'+
       '<p class="hint">カレンダーの日付をひらいて「＋ 現場を追加」から、この施設名をえらべます。</p></section>';
   }
   return h+'</div></div></div>';
+}
+
+
+/* ---------- 施設をさがす（予定タブの上） ---------- */
+function siteFinder(){
+  var q=String(S.findQ||"").trim();
+  var h='<div class="finder"><input placeholder="施設名でさがす（例：福島警察署）" value="'+esc(q)+'" data-field="findQ">'+
+    (q?'<button class="fclear" data-act="find-clear">✕</button>':'')+'</div>';
+  if(!q) return h;
+
+  var hits=(S.config.sites||[]).filter(function(x){ return (x.name+x.area).indexOf(q)>=0; }).slice(0,8);
+  if(!hits.length) return h+'<p class="hint">「'+esc(q)+'」に当てはまる契約先はありませんでした。</p>';
+
+  var curM=Number(S.ym.split("-")[1]);
+  h+='<div class="findlist">'+hits.map(function(x){
+    var ms=Object.keys(monthsOf(x.id)).map(Number).sort(function(a,b){return a-b;});
+    return '<button class="findrow" data-act="site" data-id="'+x.id+'">'+
+      '<span class="fr1"><b>'+esc(x.name)+'</b><small>'+esc(x.area)+'</small></span>'+
+      '<span class="fr2">'+(ms.length
+        ? ms.map(function(m){ return '<i class="fm'+(m===curM?" cur":"")+'">'+m+'</i>'; }).join("")
+        : '<i class="fm none">未設定</i>')+'</span>'+
+      '<span class="chev">›</span></button>';
+  }).join("")+'</div>'+
+  '<p class="hint">数字は'+fyLabel(S.fy)+'に定期清掃の予定がある月です。おすと、実施の記録もしらべられます。</p>';
+  return h;
+}
+
+/* ---------- 施設ごとの実施記録 ---------- */
+/* 月ごとに分かれて保存しているので、前後2年ぶんを見にいく */
+async function loadSiteHistory(siteName){
+  S.hist={name:siteName, loading:true, rows:[]}; render();
+  try{
+    var base=new Date(), list=[];
+    for(var k=-18; k<=12; k++){
+      var d=new Date(base.getFullYear(), base.getMonth()+k, 1);
+      list.push(ymOf(d));
+    }
+    var got=[];
+    /* まとめて問い合わせる（6件ずつ） */
+    for(var i=0;i<list.length;i+=6){
+      var chunk=list.slice(i,i+6);
+      var res=await Promise.all(chunk.map(function(ym){
+        return getDocs(query(collection(db,"months",ym,"jobs"), where("site","==",siteName)))
+          .then(function(sn){
+            var out=[]; sn.forEach(function(dd){ out.push(Object.assign({id:dd.id}, dd.data())); });
+            return out;
+          })
+          .catch(function(){ return []; });
+      }));
+      res.forEach(function(a){ got=got.concat(a); });
+    }
+    got.sort(function(a,b){ return (b.date+(b.start||"")).localeCompare(a.date+(a.start||"")); });
+    S.hist={name:siteName, loading:false, rows:got};
+  }catch(e){
+    S.hist={name:siteName, loading:false, rows:[], err:(e.code||e.message||String(e))};
+  }
+  render();
+}
+
+function viewHistory(){
+  var H=S.hist; if(!H) return "";
+  var today=ymd(new Date());
+  var past=H.rows.filter(function(r){ return r.date<today; });
+  var fut =H.rows.filter(function(r){ return r.date>=today; }).reverse();
+
+  var h='<section class="blk"><div class="blk-hd"><h3>実施の記録</h3>'+
+    '<button class="add" data-act="hist-close">とじる</button></div>';
+
+  if(H.loading) return h+'<p class="hint">しらべています…</p></section>';
+  if(H.err)     return h+'<p class="warnline">よみこめませんでした（'+esc(H.err)+'）</p></section>';
+  if(!H.rows.length)
+    return h+'<p class="hint">この2年半のあいだに、この施設の予定は登録されていません。</p></section>';
+
+  h+='<p class="hint">直近18か月前から1年先までをしらべました。日付をおすとその日をひらけます。</p>';
+
+  function block(title, rows, cls){
+    if(!rows.length) return "";
+    var out='<h4 class="histttl '+cls+'">'+title+'（'+rows.length+'回）</h4><div class="histlist">';
+    var lastY="";
+    out+=rows.map(function(r){
+      var y=r.date.slice(0,4), d=parseYmd(r.date);
+      var yh = y!==lastY ? '<div class="histy">'+y+'年</div>' : "";
+      lastY=y;
+      var who=(r.assignedNames||[]).join("・");
+      return yh+'<button class="histrow" data-act="hist-day" data-v="'+r.date+'">'+
+        '<span class="hd1">'+(d.getMonth()+1)+'/'+d.getDate()+'<small>'+WD[d.getDay()]+'</small></span>'+
+        '<span class="hd2"><b>'+esc(r.start||"時間未定")+'</b>'+
+          (who?'<s>'+esc(who)+'</s>':'<s class="none">担当未定</s>')+'</span>'+
+        '<span class="chev">›</span></button>';
+    }).join("");
+    return out+'</div>';
+  }
+  h+=block("これから", fut, "fut");
+  h+=block("これまで", past, "past");
+  return h+'</section>';
 }
 
 /* ---------- メンバー ---------- */
@@ -1532,6 +1669,7 @@ document.addEventListener("click", async function(ev){
     case "refresh": render(); break;
     case "tab": S.tab=v; S.fyConfirm=false; render(); break;
     case "cal-rich": S.calRich=!S.calRich; render(); break;
+    case "find-clear": S.findQ=""; render(); break;
     case "mon": {
       S.ym=addMonths(S.ym,Number(v));
       subscribeMonth(S.ym);
@@ -1539,9 +1677,17 @@ document.addEventListener("click", async function(ev){
       render(); break;
     }
     case "day": S.openDay=v; S.editing=null; S.availDraft={}; render(); break;
-    case "site": S.openSite=id; S.addingPlanTo=null; render(); break;
+    case "site": S.openSite=id; S.addingPlanTo=null; S.hist=null; render(); break;
+    case "hist-load": await loadSiteHistory(v); break;
+    case "hist-close": S.hist=null; render(); break;
+    case "hist-day": {
+      var hy=v.slice(0,7);
+      S.openSite=null; S.hist=null; S.openDay=v;
+      if(hy!==S.ym){ S.ym=hy; subscribeMonth(S.ym); }
+      render(); break;
+    }
     case "close": case "close-bg": S.openDay=null; S.openSite=null; S.editing=null;
-      S.addingPlanTo=null; S.availDraft={}; render(); break;
+      S.addingPlanTo=null; S.availDraft={}; S.hist=null; render(); break;
 
     /* 年度 */
     case "fy": {
@@ -1696,6 +1842,7 @@ document.addEventListener("input", function(ev){
     if(S.imp && S.imp.all[ii]) S.imp.all[ii][f==="imp-start"?"start":"site"]=val;
   }
   else if(f==="siteQuery"){ S.siteQuery=val; clearTimeout(window.__q); window.__q=setTimeout(render,260); }
+  else if(f==="findQ"){ S.findQ=val; clearTimeout(window.__f); window.__f=setTimeout(render,260); }
   else if(f==="rename"){
     var rid=ev.target.getAttribute("data-id");
     S.config.members=(S.config.members||[]).map(function(m){ return m.id===rid?Object.assign({},m,{name:val}):m; });
