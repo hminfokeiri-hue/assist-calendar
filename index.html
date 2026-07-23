@@ -148,6 +148,18 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .hd2 s.none{color:#8A4508}
 
+.se-edit{width:100%; padding:13px; border-radius:11px; font-size:13.5px; font-weight:700;
+  background:var(--card); border:1px solid var(--line); color:var(--ink); margin-bottom:12px}
+.se-edit:active{border-color:var(--ok)}
+.grp-pick{display:flex; flex-wrap:wrap; gap:7px; margin:4px 0 4px}
+.grp{font-size:12.5px; font-weight:700; padding:10px 13px; border-radius:99px;
+  border:2px solid var(--line); background:var(--card)}
+.grp.on{background:var(--ink); color:#fff; border-color:var(--ink)}
+.delbox{background:#FBEEEC; border:2px solid var(--ng); border-radius:12px; padding:14px; margin-top:16px}
+.delbox b{font-size:14px; color:var(--ng); display:block}
+.delbox p{font-size:12px; color:var(--ink2); line-height:1.7; margin:8px 0 0}
+.delbox .addbar{margin-top:12px}
+
 .mpinbtn{flex:0 0 auto; font-size:13px; font-weight:800; color:var(--ink); background:#EDF1F0;
   padding:6px 10px 4px; border-radius:8px; letter-spacing:.08em; font-variant-numeric:tabular-nums;
   text-align:center; min-width:64px}
@@ -702,7 +714,7 @@ var S={
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
   fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
-  imp:null, impBusy:false, impMsg:"", calRich:true, hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false
+  imp:null, impBusy:false, impMsg:"", calRich:true, hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false
 };
 var _lastTab=null;
 var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
@@ -1009,6 +1021,10 @@ function viewApp(){
 
   if(S.openDay) h+=viewDaySheet();
   if(S.openSite) h+=viewSiteSheet();
+  else if(S.siteEdit && !S.siteEdit.id) h+=
+    '<div class="sheet-wrap" data-act="close-bg"><div class="sheet">'+
+    '<div class="sheet-hd"><h2>契約先を追加</h2><button class="close" data-act="se-cancel">✕</button></div>'+
+    '<div class="sheet-body">'+siteEditor()+'</div></div></div>';
   if(S.viewMember) h+=memberSheet();
   if(S.printing) h+=viewPrint();
   if(S.toast) h+='<div class="toast">'+esc(S.toast)+'</div>';
@@ -1387,7 +1403,8 @@ function viewSites(){
         Object.keys(GROUPS).map(function(g){
           return '<option value="'+g+'"'+(S.siteGroup===g?" selected":"")+'>'+GROUPS[g]+'</option>'; }).join("")+'</select>'+
       '<input placeholder="施設名でさがす" value="'+esc(S.siteQuery)+'" data-field="siteQuery"></div>'+
-      '<div id="siteRes">'+sitesResults()+'</div>';
+      '<div id="siteRes">'+sitesResults()+'</div>'+
+      '<button class="btn-add" data-act="se-new">＋ 契約先を追加する</button>';
 
   h+='<h2 class="secttl mt">履行内容の種類</h2>'+
     '<p class="hint">ここに足した種類が、施設ごとの登録でえらべるようになります。</p>'+
@@ -1631,6 +1648,109 @@ async function impRun(){
   }
 }
 
+
+/* ---------- 契約先の追加・修正・削除 ---------- */
+async function saveSites(list){
+  try{
+    await setDoc(doc(db,"config","sites"), {list:list});
+    S.config.sites=list;
+    TONE_CACHE=null;          /* 色分けの記憶を作りなおす */
+    return true;
+  }catch(e){
+    S.seErr="保存できませんでした（"+(e.code||e.message||"")+"）";
+    render();
+    return false;
+  }
+}
+
+function newSiteId(){
+  var n=0;
+  (S.config.sites||[]).forEach(function(x){
+    var v=Number(String(x.id).replace(/^s/,""));
+    if(isFinite(v) && v>n) n=v;
+  });
+  return "s"+(n+1);
+}
+
+async function saveSiteEdit(){
+  var e=S.siteEdit; if(!e) return;
+  var name=String(e.name||"").trim(), area=String(e.area||"").trim(), grp=e.group||"府";
+  if(!name){ S.seErr="施設名を入れてください"; render(); return; }
+  var dup=(S.config.sites||[]).some(function(x){
+    return x.id!==e.id && normName(x.name)===normName(name); });
+  if(dup){ S.seErr="同じ名前の契約先がすでにあります"; render(); return; }
+
+  S.seBusy=true; S.seErr=""; render();
+  var list=(S.config.sites||[]).slice();
+  if(e.id){
+    list=list.map(function(x){ return x.id===e.id ? {id:x.id, group:grp, name:name, area:area} : x; });
+  }else{
+    list.push({id:newSiteId(), group:grp, name:name, area:area});
+  }
+  var ok=await saveSites(list);
+  S.seBusy=false;
+  if(ok){
+    var wasNew=!e.id;
+    S.siteEdit=null; S.seErr="";
+    flash(name+(wasNew?" を追加しました":" をなおしました"));
+  }
+}
+
+async function deleteSite(){
+  var e=S.siteEdit; if(!e || !e.id) return;
+  S.seBusy=true; S.seErr=""; render();
+  var list=(S.config.sites||[]).filter(function(x){ return x.id!==e.id; });
+  var ok=await saveSites(list);
+  if(ok){
+    /* 年間の履行計画からも消す */
+    var years=Object.keys(S.annualByFy);
+    for(var i=0;i<years.length;i++){
+      var fy=years[i], a=annualOf(Number(fy));
+      if(a && a[e.id]){
+        var a2=clone(a); delete a2[e.id];
+        S.annualByFy[fy]=a2;
+        try{ await saveAnnual(Number(fy), a2); }catch(e2){}
+      }
+    }
+    S.siteEdit=null; S.openSite=null; S.seBusy=false; S.seConfirm=false;
+    flash(e.name+" を契約先から消しました");
+  }else{
+    S.seBusy=false;
+  }
+}
+
+function siteEditor(){
+  var e=S.siteEdit; if(!e) return "";
+  var isNew=!e.id;
+  return '<section class="blk"><h3>'+(isNew?"新しい契約先":"契約先の内容")+'</h3>'+
+    '<label class="f"><span>施設名</span>'+
+      '<input value="'+esc(e.name||"")+'" data-field="seName" placeholder="例：福島警察署"></label>'+
+    '<label class="f"><span>所在地</span>'+
+      '<input value="'+esc(e.area||"")+'" data-field="seArea" placeholder="例：大阪市福島区"></label>'+
+    '<p class="f"><span style="font-size:12px;font-weight:700;color:var(--ink2)">契約先の区分</span></p>'+
+    '<div class="grp-pick">'+Object.keys(GROUPS).map(function(g){
+      return '<button class="grp'+(e.group===g?" on":"")+'" data-act="se-group" data-v="'+g+'">'+
+        esc(GROUPS[g])+'</button>'; }).join("")+'</div>'+
+    (isNew?'':'<p class="hint">名前をなおしても、すでに登録ずみの現場の名前はそのままです。'+
+      'そろえたいときは、その日の画面から直してください。</p>')+
+    (S.seErr?'<p class="err">'+esc(S.seErr)+'</p>':'')+
+    '<div class="addbar">'+
+      '<button class="ghost" data-act="se-cancel">やめる</button>'+
+      (isNew?'':'<button class="danger" data-act="se-del">けす</button>')+
+      '<button class="primary" data-act="se-save"'+(S.seBusy?" disabled":"")+'>'+
+        (S.seBusy?"保存中…":"保存する")+'</button>'+
+    '</div>'+
+    (S.seConfirm
+      ? '<div class="delbox"><b>'+esc(e.name)+' を消しますか？</b>'+
+        '<p>この契約先と、年間の履行計画が消えます。'+
+        'すでに組んだ現場の予定は残ります。もとには戻せません。</p>'+
+        '<div class="addbar"><button class="ghost" data-act="se-del-cancel">やめる</button>'+
+        '<button class="danger" style="flex:1" data-act="se-del-go"'+(S.seBusy?" disabled":"")+'>'+
+        (S.seBusy?"消しています…":"消す")+'</button></div></div>'
+      : '')+
+    '</section>';
+}
+
 /* ---------- 施設シート ---------- */
 function viewSiteSheet(){
   var s=siteById(S.openSite); if(!s) return "";
@@ -1639,6 +1759,9 @@ function viewSiteSheet(){
   var h='<div class="sheet-wrap" data-act="close-bg"><div class="sheet">'+
     '<div class="sheet-hd"><h2>'+esc(s.name)+'<small>'+esc(GROUPS[s.group]||s.group)+'　'+esc(s.area)+'　'+fyLabel(S.fy)+'</small></h2>'+
     '<button class="close" data-act="close">✕</button></div><div class="sheet-body" data-keep-scroll="sheet">';
+
+  if(adm && S.siteEdit && S.siteEdit.id===s.id) return h+siteEditor()+'</div></div></div>';
+  if(adm) h+='<button class="se-edit" data-act="se-edit" data-id="'+s.id+'">この契約先の名前や区分をなおす</button>';
 
   h+='<section class="blk"><div class="blk-hd"><h3>履行内容と実施月</h3>'+
     (adm?'<button class="add" data-act="plan-add-open" data-id="'+s.id+'">＋ 追加</button>':'')+'</div>';
@@ -2521,9 +2644,26 @@ document.addEventListener("click", async function(ev){
       render(); break;
     }
     case "day": S.openDay=v; S.editing=null; S.availDraft={}; render(); break;
-    case "site": S.openSite=id; S.addingPlanTo=null; S.hist=null; render(); break;
+    case "site": S.openSite=id; S.addingPlanTo=null; S.hist=null; S.siteEdit=null; S.seConfirm=false; render(); break;
     case "member-view": S.viewMember=id; render(); break;
     case "pin-show": S.pinShow=!S.pinShow; render(); break;
+
+    /* 契約先の追加・修正・削除 */
+    case "se-new":
+      S.siteEdit={id:null, name:"", group:(S.siteGroup!=="all"?S.siteGroup:"府"), area:""};
+      S.seErr=""; S.seConfirm=false; render(); break;
+    case "se-edit": {
+      var se=siteById(id);
+      if(se){ S.siteEdit={id:se.id, name:se.name, group:se.group, area:se.area};
+        S.seErr=""; S.seConfirm=false; render(); }
+      break;
+    }
+    case "se-group": if(S.siteEdit){ S.siteEdit.group=v; S.seErr=""; render(); } break;
+    case "se-cancel": S.siteEdit=null; S.seErr=""; S.seConfirm=false; render(); break;
+    case "se-save": await saveSiteEdit(); break;
+    case "se-del": S.seConfirm=true; render(); break;
+    case "se-del-cancel": S.seConfirm=false; render(); break;
+    case "se-del-go": await deleteSite(); break;
     case "pin-open":
       S.pinEdit=(S.pinEdit===id?null:id); S.pinNew=""; S.pinAdmin=""; S.pinErr="";
       render(); break;
@@ -2623,7 +2763,8 @@ document.addEventListener("click", async function(ev){
       render(); break;
     }
     case "close": case "close-bg": S.openDay=null; S.openSite=null; S.editing=null;
-      S.addingPlanTo=null; S.availDraft={}; S.hist=null; S.viewMember=null; render(); break;
+      S.addingPlanTo=null; S.availDraft={}; S.hist=null; S.viewMember=null;
+      S.siteEdit=null; S.seConfirm=false; render(); break;
 
     /* 年度 */
     case "fy": {
@@ -2823,6 +2964,9 @@ document.addEventListener("input", function(ev){
   else if(f==="newService") S.newService=val;
   else if(f==="addName"||f==="addId"||f==="addPin"||f==="addAdminPin"){ S[f]=val; S.addErr=""; }
   else if(f==="pinNew"||f==="pinAdmin"){ S[f]=val; S.pinErr=""; }
+  else if(f==="seName"||f==="seArea"){
+    if(S.siteEdit){ S.siteEdit[f==="seName"?"name":"area"]=val; S.seErr=""; }
+  }
   else if(f==="imp-start"||f==="imp-site"){
     var ii=Number(ev.target.getAttribute("data-i"));
     if(S.imp && S.imp.all[ii]) S.imp.all[ii][f==="imp-start"?"start":"site"]=val;
