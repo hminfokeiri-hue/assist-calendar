@@ -283,6 +283,8 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .gcell.on{color:var(--ok); background:#EDF6F3}
 .gcell.x{color:var(--ng); background:#FBEEEC; font-size:12px}
 .gcell.dayng{color:#C3A9A5; background:#FAF3F2; font-size:11px}
+.gcell.dayok{color:#9CC4B7; background:#F3F9F7; font-size:11px}
+.gcell.on.warn{background:#FDF0D6; box-shadow:inset 0 0 0 2px var(--short)}
 .gtable tr.newday .gd,.gtable tr.newday .gs,.gtable tr.newday td{border-top:2px solid var(--line)}
 .gtable tr.sunrow .gd,.gtable tr.sunrow .gs{background:#FDF6F5}
 .gtable tr.satrow .gd,.gtable tr.satrow .gs{background:#F4F7FB}
@@ -290,6 +292,15 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
   font-weight:800; font-size:11px; text-align:center; color:var(--ink2)}
 .gfoot .gs{z-index:4} .gfoot .gd{z-index:4}
 .ghint{font-size:11px; color:var(--ink2); margin:10px 0 0; line-height:1.6}
+.glegend{display:flex; flex-wrap:wrap; gap:10px 14px; margin-top:10px; font-size:11px; color:var(--ink2)}
+.glegend span{display:flex; align-items:center; gap:5px}
+.gk{font-style:normal; width:22px; height:22px; border-radius:5px; display:flex; align-items:center;
+  justify-content:center; font-size:12px; font-weight:800; color:#DBE0E3; background:#F4F6F7}
+.gk.on{color:var(--ok); background:#EDF6F3}
+.gk.x{color:var(--ng); background:#FBEEEC}
+.gk.dayok{color:#9CC4B7; background:#F3F9F7}
+.gk.dayng{color:#C3A9A5; background:#FAF3F2}
+.gk.on.warn{background:#FDF0D6; box-shadow:inset 0 0 0 2px var(--short)}
 
 /* 取込 */
 .drop{border:2px dashed var(--line); border-radius:14px; padding:30px 18px; text-align:center; background:var(--card);
@@ -1115,9 +1126,17 @@ function viewGrid(){
   h+='</tfoot></table></div>';
   h+='<p class="ghint"><b>升をおすたびに ○ → × → 空白 と変わります。</b>'+
      '○＝その現場に配置、×＝その現場には入らない、空白＝まだ決めていない。<br>'+
-     'うすい灰色の × は、ご本人が「その日はぜんぶ出られない」と入れた日です。<br>'+
+     'うすい ○ × は、ご本人が入れた「その日ぜんぶの出欠」です（うす緑＝出られる、うす赤＝出られない）。<br>'+
+     'オレンジのわくは、出られないと言っている方を配置しているところです。<br>'+
      '日付や現場名をおすと、その日の内容をくわしく直せます。'+
-     '協力者名は上に、日付と現場名は左に固定しているので、横にスクロールすると全員ぶん見られます。</p>';
+     '協力者名は上に、日付と現場名は左に固定しているので、横にスクロールすると全員ぶん見られます。</p>'+
+     '<div class="glegend">'+
+       '<span><i class="gk on">○</i>配置</span>'+
+       '<span><i class="gk x">×</i>この現場は入らない</span>'+
+       '<span><i class="gk dayok">○</i>本人：出られる</span>'+
+       '<span><i class="gk dayng">×</i>本人：出られない</span>'+
+       '<span><i class="gk on warn">○</i>要確認</span>'+
+     '</div>';
   return h;
 }
 
@@ -1151,8 +1170,9 @@ function gridRows(rows, ms, today){
         '<td class="gs" data-act="day" data-v="'+r.date+'"><small>予定なし</small></td>'+
         ms.map(function(m){
           var st=((S.month.avail||{})[m.id]||{})[r.date];
-          return '<td class="gcell tap'+(st==="ng"?" dayng":"")+'" data-act="cell" data-d="'+r.date+'" data-m="'+m.id+'">'+
-            (st==="ng"?"×":"")+'</td>'; }).join("")+'</tr>';
+          return '<td class="gcell tap'+(st==="ng"?" dayng":st==="ok"?" dayok":"")+
+            '" data-act="cell" data-d="'+r.date+'" data-m="'+m.id+'">'+
+            (st==="ng"?"×":st==="ok"?"○":"")+'</td>'; }).join("")+'</tr>';
     }
     var short=(j.assigned||[]).length<(j.need||0);
     return '<tr class="'+cls+'">'+left+
@@ -1161,9 +1181,15 @@ function gridRows(rows, ms, today){
       ms.map(function(m){
         var on=(j.assigned||[]).indexOf(m.id)>=0;      /* この現場に配置 */
         var jng=(j.ng||[]).indexOf(m.id)>=0;           /* この現場には入らない */
-        var dng=(((S.month.avail||{})[m.id]||{})[r.date])==="ng";  /* その日ぜんぶ出られない */
-        var cc = on ? " on" : (jng ? " x" : (dng ? " dayng" : ""));
-        var tx = on ? "○" : (jng ? "×" : (dng ? "×" : ""));
+        var av=((S.month.avail||{})[m.id]||{})[r.date]; /* ご本人の申告（その日ぜんぶ） */
+        var cc, tx;
+        if(on){       cc=" on";    tx="○"; }
+        else if(jng){ cc=" x";     tx="×"; }
+        else if(av==="ng"){ cc=" dayng"; tx="×"; }
+        else if(av==="ok"){ cc=" dayok"; tx="○"; }
+        else { cc=""; tx=""; }
+        /* ご本人が「出られない」と言っている人を配置しているときは、印をつける */
+        if(on && av==="ng") cc=" on warn";
         return '<td class="gcell tap'+cc+'" data-act="cell"'+
           ' data-j="'+j.id+'" data-d="'+r.date+'" data-m="'+m.id+'">'+tx+'</td>';
       }).join("")+'</tr>';
