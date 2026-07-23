@@ -147,6 +147,21 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .hd2 s.none{color:#8A4508}
 
+.mcal{font-size:12px; font-weight:800; color:var(--ink); background:#EDF1F0;
+  padding:7px 13px; border-radius:8px; font-variant-numeric:tabular-nums}
+.mbar2{display:flex; align-items:center; gap:8px; margin-bottom:12px}
+.mbar2 b{font-size:18px; font-variant-numeric:tabular-nums; min-width:44px; text-align:center}
+.mbar2 .pill{margin-left:auto}
+.mlist2{background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.mrow2{display:flex; gap:11px; padding:10px 12px; border-top:1px solid #F0F2F1}
+.mrow2:first-child{border-top:none}
+.mr-d{flex:0 0 44px; font-size:19px; font-weight:800; font-variant-numeric:tabular-nums}
+.mr-d small{font-size:11px; font-weight:700; color:var(--ink2); margin-left:3px}
+.mr-d.sun{color:var(--ng)} .mr-d.sat{color:#2B6CB0}
+.mr-j{flex:1; min-width:0}
+.mr-j b{display:block; font-size:13.5px; font-weight:700; line-height:1.5}
+.mr-j s{display:block; text-decoration:none; font-size:11.5px; color:var(--ink2); margin-bottom:4px}
+
 .calbar{display:flex; justify-content:flex-end; margin-bottom:8px}
 .sw-b{width:4px; height:13px; border-radius:2px; background:var(--short); display:block}
 
@@ -266,7 +281,8 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .gcell.tap:active{background:#E6EBEE}
 .gcell.on:active{background:#D7EBE4}
 .gcell.on{color:var(--ok); background:#EDF6F3}
-.gcell.x{color:var(--ng); background:#FBEEEC; font-size:11px}
+.gcell.x{color:var(--ng); background:#FBEEEC; font-size:12px}
+.gcell.dayng{color:#C3A9A5; background:#FAF3F2; font-size:11px}
 .gtable tr.newday .gd,.gtable tr.newday .gs,.gtable tr.newday td{border-top:2px solid var(--line)}
 .gtable tr.sunrow .gd,.gtable tr.sunrow .gs{background:#FDF6F5}
 .gtable tr.satrow .gd,.gtable tr.satrow .gs{background:#F4F7FB}
@@ -590,7 +606,7 @@ var S={
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
   fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
-  imp:null, impBusy:false, impMsg:"", calRich:true, hist:null, findQ:"", mpick:false, pickYear:null, printFor:null
+  imp:null, impBusy:false, impMsg:"", calRich:true, hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null
 };
 var _lastTab=null;
 var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
@@ -758,7 +774,7 @@ async function saveJob(job){
   var names=(job.assigned||[]).map(function(id){ return memberName(id); });
   try{ await setDoc(doc(db,"months",S.ym,"jobs",job.id),
         {date:S.openDay, site:job.site, start:job.start||"", need:job.need||0,
-         assigned:job.assigned||[], assignedNames:names, note:job.note||""}); }
+         assigned:job.assigned||[], assignedNames:names, ng:job.ng||[], note:job.note||""}); }
   catch(e){ flash("保存できませんでした（"+(e.code||"")+"）"); }
 }
 async function removeJob(jobId){
@@ -894,6 +910,7 @@ function viewApp(){
 
   if(S.openDay) h+=viewDaySheet();
   if(S.openSite) h+=viewSiteSheet();
+  if(S.viewMember) h+=memberSheet();
   if(S.printing) h+=viewPrint();
   if(S.toast) h+='<div class="toast">'+esc(S.toast)+'</div>';
   return h;
@@ -1096,8 +1113,9 @@ function viewGrid(){
   h+='</tbody><tfoot id="gfoot">';
   h+=gridFoot(ms);
   h+='</tfoot></table></div>';
-  h+='<p class="ghint"><b>升をおすたびに ○ → ✕ → 空白 と変わります。</b>'+
-     '○＝その現場に配置、✕＝その日は出られない、空白＝どちらでもない。<br>'+
+  h+='<p class="ghint"><b>升をおすたびに ○ → × → 空白 と変わります。</b>'+
+     '○＝その現場に配置、×＝その現場には入らない、空白＝まだ決めていない。<br>'+
+     'うすい灰色の × は、ご本人が「その日はぜんぶ出られない」と入れた日です。<br>'+
      '日付や現場名をおすと、その日の内容をくわしく直せます。'+
      '協力者名は上に、日付と現場名は左に固定しているので、横にスクロールすると全員ぶん見られます。</p>';
   return h;
@@ -1128,22 +1146,26 @@ function gridRows(rows, ms, today){
     var left='<td class="gd '+(dow===0?"sun":dow===6?"sat":"")+'" data-act="day" data-v="'+r.date+'">'+
       (r.first?'<b>'+Number(r.date.slice(-2))+'</b><small>'+WD[dow]+'</small>':'')+'</td>';
     if(!j){
+      /* 現場のない日は、その日ぜんぶの出欠だけ */
       return '<tr class="'+cls+'">'+left+
         '<td class="gs" data-act="day" data-v="'+r.date+'"><small>予定なし</small></td>'+
         ms.map(function(m){
           var st=((S.month.avail||{})[m.id]||{})[r.date];
-          return '<td class="gcell tap'+(st==="ng"?" x":"")+'" data-act="cell" data-d="'+r.date+'" data-m="'+m.id+'">'+
-            (st==="ng"?"✕":"")+'</td>'; }).join("")+'</tr>';
+          return '<td class="gcell tap'+(st==="ng"?" dayng":"")+'" data-act="cell" data-d="'+r.date+'" data-m="'+m.id+'">'+
+            (st==="ng"?"×":"")+'</td>'; }).join("")+'</tr>';
     }
     var short=(j.assigned||[]).length<(j.need||0);
     return '<tr class="'+cls+'">'+left+
       '<td class="gs" data-act="day" data-v="'+r.date+'"><b>'+esc(j.site)+'</b><small class="'+(short?"short":"")+'">'+
         esc(j.start||"時間未定")+'　'+(j.assigned||[]).length+'/'+(j.need||0)+'人</small></td>'+
       ms.map(function(m){
-        var on=(j.assigned||[]).indexOf(m.id)>=0;
-        var st=((S.month.avail||{})[m.id]||{})[r.date];
-        return '<td class="gcell tap'+(on?" on":(st==="ng"?" x":""))+'" data-act="cell"'+
-          ' data-j="'+j.id+'" data-d="'+r.date+'" data-m="'+m.id+'">'+(on?"○":(st==="ng"?"✕":""))+'</td>';
+        var on=(j.assigned||[]).indexOf(m.id)>=0;      /* この現場に配置 */
+        var jng=(j.ng||[]).indexOf(m.id)>=0;           /* この現場には入らない */
+        var dng=(((S.month.avail||{})[m.id]||{})[r.date])==="ng";  /* その日ぜんぶ出られない */
+        var cc = on ? " on" : (jng ? " x" : (dng ? " dayng" : ""));
+        var tx = on ? "○" : (jng ? "×" : (dng ? "×" : ""));
+        return '<td class="gcell tap'+cc+'" data-act="cell"'+
+          ' data-j="'+j.id+'" data-d="'+r.date+'" data-m="'+m.id+'">'+tx+'</td>';
       }).join("")+'</tr>';
   }).join("");
 }
@@ -1745,13 +1767,13 @@ function viewTeam(){
   });
   var p=S.ym.split("-");
   return '<h2 class="secttl">メンバー</h2>'+
-    '<p class="hint">名前をなおすと、その人の画面にもすぐ反映されます（過去の割り当ては内部のIDで結んでいるので崩れません）。'+
-    p[0]+'年'+Number(p[1])+'月の割り当て件数を右に出しています。</p>'+
+    '<p class="hint">名前をなおすと、その人の画面にもすぐ反映されます（過去の割り当ては内部のIDで結んでいるので崩れません）。<br>'+
+    '<b>件数のボタンをおすと、その方の月別カレンダーが見られます。</b>（'+p[0]+'年'+Number(p[1])+'月）</p>'+
     '<div class="mlist">'+(S.config.members||[]).map(function(m){
       return '<div class="mrow'+(m.active===false?" off":"")+'">'+
         '<input class="mname" value="'+esc(m.name)+'" data-field="rename" data-id="'+m.id+'">'+
         '<span><span class="mpin ro">'+esc(m.loginId||"")+'</span><small class="mpin-h">ID</small></span>'+
-        '<span class="mcount">'+(counts[m.id]||0)+'件</span>'+
+        '<button class="mcal" data-act="member-view" data-id="'+m.id+'">'+(counts[m.id]||0)+'件</button>'+
         '<button class="mtog" data-act="member-toggle" data-id="'+m.id+'">'+(m.active===false?"もどす":"休止")+'</button></div>';
     }).join("")+'</div>'+
     '<div class="notebox"><b>メンバーの追加・暗証番号の再発行</b>'+
@@ -1762,6 +1784,72 @@ function viewTeam(){
       '<small>協力者の画面に「年間予定」タブを出します。閲覧のみで、編集はできません。</small></div>'+
       '<button class="sw'+(S.config.showAnnualToMembers!==false?" on":"")+'" data-act="toggle-annual"></button></div>'+
     '<p class="hint">この切り替えはサーバー側の権限にも連動します。オフのあいだは、協力者は年間予定も契約先一覧も読み取れません。</p>';
+}
+
+
+/* ---------- 協力者ひとりぶんの予定（管理者用） ---------- */
+function memberSheet(){
+  var id=S.viewMember; if(!id) return "";
+  var m=(S.config.members||[]).find(function(x){return x.id===id;});
+  if(!m) return "";
+  var p=S.ym.split("-").map(Number);
+  var lead=new Date(p[0],p[1]-1,1).getDay(), total=daysInMonth(S.ym);
+  var today=ymd(new Date());
+  var cells=[]; for(var i=0;i<lead;i++) cells.push(null);
+  for(var d=1;d<=total;d++) cells.push(S.ym+"-"+pad(d));
+  while(cells.length%7!==0) cells.push(null);
+
+  var mine=[], ngDays=0;
+  for(var k=1;k<=total;k++){
+    var dt=S.ym+"-"+pad(k);
+    var js=((S.month.jobs||{})[dt]||[]).filter(function(j){ return (j.assigned||[]).indexOf(id)>=0; });
+    if(js.length) mine.push({date:dt, jobs:js});
+    if((((S.month.avail||{})[id]||{})[dt])==="ng") ngDays++;
+  }
+  var cnt=mine.reduce(function(a,x){return a+x.jobs.length;},0);
+
+  var grid='<div class="wd-row">'+WD.map(function(w,i){
+      return '<div class="wd '+(i===0?"sun":i===6?"sat":"")+'">'+w+'</div>'; }).join("")+
+    '</div><div class="grid rich">'+cells.map(function(date){
+      if(!date) return '<div class="cell empty"></div>';
+      var jobs=((S.month.jobs||{})[date]||[]).filter(function(j){ return (j.assigned||[]).indexOf(id)>=0; });
+      var dow=parseYmd(date).getDay();
+      var st=((S.month.avail||{})[id]||{})[date];
+      var cls="cell"+(date===today?" today":"")+(st==="ng"?" ngd":st==="ok"?" okd":"")+(jobs.length?" mine":"");
+      return '<button class="'+cls+'" data-act="mday" data-v="'+date+'">'+
+        '<span class="dnum '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(date.slice(-2))+'</span>'+
+        (st?'<span class="cell-x '+st+'">'+(st==="ng"?"×":"○")+'</span>':'')+
+        '<span class="jlist">'+jobs.slice(0,3).map(function(j){
+          return '<span class="jitem me"><b>'+esc(j.start||"時間未定")+'</b><s>'+esc(j.site)+'</s></span>';
+        }).join("")+(jobs.length>3?'<span class="jmore">ほか'+(jobs.length-3)+'件</span>':'')+'</span>'+
+        '</button>';
+    }).join("")+'</div>';
+
+  var list=mine.map(function(r){
+    var dow=parseYmd(r.date).getDay();
+    return '<div class="mrow2"><span class="mr-d '+(dow===0?"sun":dow===6?"sat":"")+'">'+
+      Number(r.date.slice(-2))+'<small>'+WD[dow]+'</small></span><span class="mr-j">'+
+      r.jobs.map(function(j){
+        var w=(j.assigned||[]).filter(function(x){return x!==id;}).map(function(x){return memberName(x,j);}).join("・");
+        return '<b>'+esc(j.start||"時間未定")+'　'+esc(j.site)+'</b>'+(w?'<s>いっしょに：'+esc(w)+'</s>':'');
+      }).join("")+'</span></div>';
+  }).join("");
+
+  return '<div class="sheet-wrap" data-act="close-bg"><div class="sheet">'+
+    '<div class="sheet-hd"><h2>'+esc(m.name)+' さん<small>'+p[0]+'年'+p[1]+'月　'+cnt+'件'+
+      (ngDays?'　／　出られない日 '+ngDays+'日':'')+'</small></h2>'+
+    '<button class="close" data-act="close">✕</button></div>'+
+    '<div class="sheet-body" data-keep-scroll="msheet">'+
+      '<div class="mbar2"><button class="mnav" data-act="mmon" data-v="-1">‹</button>'+
+        '<b>'+p[1]+'月</b>'+
+        '<button class="mnav" data-act="mmon" data-v="1">›</button>'+
+        '<button class="pill toggle on" data-act="mprint" data-v="'+id+'">この人のPDF</button></div>'+
+      grid+
+      (mine.length
+        ? '<h3 class="secttl mt2" style="font-size:14px">担当する日（'+mine.length+'日・'+cnt+'件）</h3>'+
+          '<div class="mlist2">'+list+'</div>'
+        : '<div class="empty-state" style="margin-top:14px"><p>この月の担当はまだありません。</p></div>')+
+    '</div></div></div>';
 }
 
 /* ---------- 日の詳細 ---------- */
@@ -1995,6 +2083,15 @@ document.addEventListener("click", async function(ev){
     }
     case "day": S.openDay=v; S.editing=null; S.availDraft={}; render(); break;
     case "site": S.openSite=id; S.addingPlanTo=null; S.hist=null; render(); break;
+    case "member-view": S.viewMember=id; render(); break;
+    case "mday": S.openDay=v; S.editing=null; S.availDraft={}; render(); break;
+    case "mmon": {
+      S.ym=addMonths(S.ym,Number(v));
+      subscribeMonth(S.ym);
+      if(fyOfYm(S.ym)!==S.fy && !S.annualByFy[fyOfYm(S.ym)]) subscribeAnnual(fyOfYm(S.ym));
+      render(); break;
+    }
+    case "mprint": S.viewMember=null; S.printing=true; S.printFor=v; S.scrollTop=true; render(); break;
     case "hist-load": await loadSiteHistory(v); break;
 
     /* 配置表の升：おすたびに ○ → ✕ → 空白 */
@@ -2010,33 +2107,46 @@ document.addEventListener("click", async function(ev){
         var dayJobs=(S.month.jobs||{})[cd]||[];
         for(var q=0;q<dayJobs.length;q++) if(dayJobs[q].id===cj) job=dayJobs[q];
       }
-      var isOn = job ? (job.assigned||[]).indexOf(cm)>=0 : false;
-      var isNg = (((S.month.avail||{})[cm]||{})[cd])==="ng";
-      var next = isOn ? "ng" : (isNg ? "" : (job ? "on" : "ng"));
-      /* 現場のない日は ✕ と空白だけ */
-
-      /* まず画面に反映（待たせない） */
       if(job){
-        var a=(job.assigned||[]).slice(), nm=(job.assignedNames||[]).slice();
-        var at=a.indexOf(cm);
-        if(next==="on"){ if(at<0){ a.push(cm); nm.push(memberName(cm)); } }
-        else if(at>=0){ a.splice(at,1); nm.splice(at,1); }
-        job.assigned=a; job.assignedNames=nm;
-      }
-      S.month.avail=S.month.avail||{};
-      S.month.avail[cm]=S.month.avail[cm]||{};
-      if(next==="ng") S.month.avail[cm][cd]="ng"; else delete S.month.avail[cm][cd];
-      /* 表の中だけ書きかえる。画面ぜんぶを作り直すと、スクロール位置が戻ってしまうため */
-      if(S.tab!=="grid" || !gridRefresh()) render();
+        /* 現場のある行：この現場だけの ○ → × → 空白 */
+        var isOn=(job.assigned||[]).indexOf(cm)>=0;
+        var isJng=(job.ng||[]).indexOf(cm)>=0;
+        var next = isOn ? "ng" : (isJng ? "" : "on");
 
-      /* つづけて保存。うまくいかなければ、画面をサーバーの状態に戻す */
-      try{
-        if(job) await setDoc(doc(db,"months",S.ym,"jobs",job.id),
-          {assigned:job.assigned, assignedNames:job.assignedNames}, {merge:true});
-        await setAvail(cm, cd, next==="ng" ? "ng" : null);
-      }catch(e){
-        flash("保存できませんでした。画面を元に戻します（"+(e.code||e.message||"")+"）");
-        subscribeMonth(S.ym);
+        var a=(job.assigned||[]).slice(), nm=(job.assignedNames||[]).slice(), g=(job.ng||[]).slice();
+        var at=a.indexOf(cm), gt=g.indexOf(cm);
+        if(next==="on"){
+          if(at<0){ a.push(cm); nm.push(memberName(cm)); }
+          if(gt>=0) g.splice(gt,1);
+        }else if(next==="ng"){
+          if(at>=0){ a.splice(at,1); nm.splice(at,1); }
+          if(gt<0) g.push(cm);
+        }else{
+          if(at>=0){ a.splice(at,1); nm.splice(at,1); }
+          if(gt>=0) g.splice(gt,1);
+        }
+        job.assigned=a; job.assignedNames=nm; job.ng=g;
+        if(S.tab!=="grid" || !gridRefresh()) render();
+        try{
+          await setDoc(doc(db,"months",S.ym,"jobs",job.id),
+            {assigned:a, assignedNames:nm, ng:g}, {merge:true});
+        }catch(e){
+          flash("保存できませんでした。画面を元に戻します（"+(e.code||e.message||"")+"）");
+          subscribeMonth(S.ym);
+        }
+      }else{
+        /* 現場のない日：その日ぜんぶの出欠 */
+        var wasNg=(((S.month.avail||{})[cm]||{})[cd])==="ng";
+        S.month.avail=S.month.avail||{};
+        S.month.avail[cm]=S.month.avail[cm]||{};
+        if(wasNg) delete S.month.avail[cm][cd]; else S.month.avail[cm][cd]="ng";
+        if(S.tab!=="grid" || !gridRefresh()) render();
+        try{
+          await setAvail(cm, cd, wasNg ? null : "ng");
+        }catch(e){
+          flash("保存できませんでした。画面を元に戻します（"+(e.code||e.message||"")+"）");
+          subscribeMonth(S.ym);
+        }
       }
       break;
     }
@@ -2048,7 +2158,7 @@ document.addEventListener("click", async function(ev){
       render(); break;
     }
     case "close": case "close-bg": S.openDay=null; S.openSite=null; S.editing=null;
-      S.addingPlanTo=null; S.availDraft={}; S.hist=null; render(); break;
+      S.addingPlanTo=null; S.availDraft={}; S.hist=null; S.viewMember=null; render(); break;
 
     /* 年度 */
     case "fy": {
