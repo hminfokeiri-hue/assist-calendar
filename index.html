@@ -733,10 +733,17 @@ function err(e){
    ============================================================ */
 async function setAvail(memberId, date, value){
   var ref=doc(db,"months",S.ym,"avail",memberId);
-  var patch={};
-  patch["d."+date] = (value===null? deleteField() : value);
-  try{ await setDoc(ref, {}, {merge:true}); await setDoc(ref, patch, {merge:true}); }
-  catch(e){ flash("保存できませんでした（"+(e.code||"")+"）"); }
+  /* d の中の「日付」に書きこむ。入れ子のかたちで渡すこと。
+     "d.2026-08-05" のように点でつなぐと、その名前の別の項目が作られてしまい、
+     読むときに見つからなくなる。 */
+  var inner={};
+  inner[date] = (value===null ? deleteField() : value);
+  try{
+    await setDoc(ref, {d:inner}, {merge:true});
+  }catch(e){
+    flash("保存できませんでした（"+(e.code||e.message||"")+"）");
+    throw e;
+  }
 }
 async function saveJob(job){
   var names=(job.assigned||[]).map(function(id){ return memberName(id); });
@@ -1932,12 +1939,15 @@ document.addEventListener("click", async function(ev){
       if(next==="ng") S.month.avail[cm][cd]="ng"; else delete S.month.avail[cm][cd];
       render();
 
-      /* つづけて保存 */
+      /* つづけて保存。うまくいかなければ、画面をサーバーの状態に戻す */
       try{
         if(job) await setDoc(doc(db,"months",S.ym,"jobs",job.id),
           {assigned:job.assigned, assignedNames:job.assignedNames}, {merge:true});
         await setAvail(cm, cd, next==="ng" ? "ng" : null);
-      }catch(e){ flash("保存できませんでした（"+(e.code||"")+"）"); }
+      }catch(e){
+        flash("保存できませんでした。画面を元に戻します（"+(e.code||e.message||"")+"）");
+        subscribeMonth(S.ym);
+      }
       break;
     }
     case "hist-close": S.hist=null; render(); break;
@@ -1971,7 +1981,18 @@ document.addEventListener("click", async function(ev){
     case "avail": {
       var date=t.getAttribute("data-d")||S.openDay;
       var cur=((S.month.avail||{})[id]||{})[date];
-      await setAvail(id, date, cur===v ? null : v);
+      var nv0=(cur===v) ? null : v;
+      /* まず画面に反映 */
+      S.month.avail=S.month.avail||{};
+      S.month.avail[id]=S.month.avail[id]||{};
+      if(nv0===null) delete S.month.avail[id][date]; else S.month.avail[id][date]=nv0;
+      render();
+      try{
+        await setAvail(id, date, nv0);
+      }catch(e){
+        flash("保存できませんでした。画面を元に戻します（"+(e.code||e.message||"")+"）");
+        subscribeMonth(S.ym);
+      }
       break;
     }
 
@@ -1997,8 +2018,14 @@ document.addEventListener("click", async function(ev){
         else S.month.avail[mid][dd2]=draft[mid];
       });
       render();
-      for(var i2=0;i2<keys.length;i2++) await setAvail(keys[i2], dd2, draft[keys[i2]]);
-      flash(keys.length+"人の出欠を保存しました"); break;
+      try{
+        for(var i2=0;i2<keys.length;i2++) await setAvail(keys[i2], dd2, draft[keys[i2]]);
+        flash(keys.length+"人の出欠を保存しました");
+      }catch(e){
+        flash("保存できませんでした。画面を元に戻します（"+(e.code||e.message||"")+"）");
+        subscribeMonth(S.ym);
+      }
+      break;
     }
 
     /* 現場 */
