@@ -671,14 +671,12 @@ function viewLogin(){
 function viewApp(){
   var adm=isAdmin();
   var who=adm?"管理者":(memberName(S.session.memberId)||"協力者");
-  var sync=pending()||saving ? "保存中…"
-    : (S.syncedAt?pad(S.syncedAt.getHours())+":"+pad(S.syncedAt.getMinutes())+" 更新":"");
+  var sync=S.syncedAt?pad(S.syncedAt.getHours())+":"+pad(S.syncedAt.getMinutes())+" 更新":"";
   var h='<header class="hd"><div><div class="hd-title">アシストカレンダー</div>'+
     '<div class="hd-who'+(adm?" adm":"")+'">'+esc(who)+'</div></div><div class="hd-r">'+
-    '<button class="icon-btn" data-act="refresh"><span class="'+((pending()||saving)?"spin":"")+'">⟳</span></button>'+
+    '<button class="icon-btn" data-act="refresh"><span>⟳</span></button>'+
     '<span class="synced">'+sync+'</span><button class="icon-btn" data-act="logout">⏻</button></div></header>';
 
-  if(!STORE_OK) h+='<div class="banner">共有の保存先が使えないため、この端末の中だけに一時保存しています。ほかの人には届きません。</div>';
 
   var tabs = adm
     ? [["list","予定"],["grid","配置表"],["annual","年間予定"],["sites","契約先"],["team","メンバー"]]
