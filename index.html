@@ -494,7 +494,11 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .pv-bar button{flex:1; padding:12px 6px; border-radius:10px; font-size:13px; font-weight:800; background:rgba(255,255,255,.14); color:#fff}
 .pv-bar button.go{background:var(--hi); color:#3D2A00}
 .pv-note{color:#F0F3F5; font-size:11px; padding:0 14px 10px; line-height:1.6; background:var(--ink)}
+.pv-pick{padding:10px 12px 0; background:var(--ink)}
+.pv-pick select{width:100%; padding:11px 12px; border-radius:9px; border:none; font-size:15px;
+  font-family:inherit; background:#fff; color:var(--ink)}
 .sheetp{background:#fff; margin:14px; padding:16px; border-radius:6px; box-shadow:0 4px 18px rgba(0,0,0,.2)}
+.pbreak{height:0}
 .sheetp h1{font-size:18px; text-align:center}
 .sheetp .ph{text-align:center; font-size:11px; color:#555; margin:5px 0 14px}
 .pgrid{display:grid; grid-template-columns:repeat(7,1fr); border-top:1px solid #333; border-left:1px solid #333}
@@ -513,8 +517,9 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
   body{background:#fff}
   #app>*{display:none !important}
   #app>.pv{display:block !important; position:static; background:#fff; overflow:visible}
-  .pv-bar,.pv-note{display:none !important}
-  .sheetp{margin:0; padding:0; box-shadow:none; border-radius:0}
+  .pv-bar,.pv-note,.pv-pick{display:none !important}
+  .sheetp{margin:0; padding:0; box-shadow:none; border-radius:0; break-inside:avoid}
+  .pbreak{break-after:page; page-break-after:always; height:0}
   .pcell{min-height:62px}
 }
 @media (prefers-reduced-motion:reduce){ *{animation:none !important; transition:none !important} }
@@ -581,7 +586,7 @@ var S={
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
   fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
-  imp:null, impBusy:false, impMsg:"", calRich:true, hist:null, findQ:"", mpick:false, pickYear:null
+  imp:null, impBusy:false, impMsg:"", calRich:true, hist:null, findQ:"", mpick:false, pickYear:null, printFor:null
 };
 var _lastTab=null;
 var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
@@ -1829,15 +1834,18 @@ function viewEditor(date){
 }
 
 /* ---------- 印刷／PDF ---------- */
-function viewPrint(){
-  var me=meId(), adm=isAdmin(), showAll=adm;
+/* 予定表を1枚ぶん組み立てる。forMember に協力者のIDを渡すと、その人のぶんだけになる */
+function printSheet(forMember){
   var p=S.ym.split("-").map(Number);
   var lead=new Date(p[0],p[1]-1,1).getDay(), total=daysInMonth(S.ym);
   var cells=[]; for(var i=0;i<lead;i++) cells.push(null);
   for(var d=1;d<=total;d++) cells.push(S.ym+"-"+pad(d));
   while(cells.length%7!==0) cells.push(null);
-  var who=adm?"全員ぶん":(memberName(me)||"");
+
+  var showAll = !forMember;
+  var who = forMember ? (memberName(forMember)+" さん") : "全員ぶん";
   var now=new Date();
+  var count=0;
 
   var grid='<div class="pgrid">'+WD.map(function(w,i){
     return '<div class="pwd '+(i===0?"sun":i===6?"sat":"")+'">'+w+'</div>'; }).join("")+
@@ -1845,31 +1853,60 @@ function viewPrint(){
       if(!date) return '<div class="pcell"></div>';
       var dow=parseYmd(date).getDay();
       var jobs=(S.month.jobs||{})[date]||[];
-      if(!showAll&&me) jobs=jobs.filter(function(j){return (j.assigned||[]).indexOf(me)>=0;});
-      var st=me?((S.month.avail||{})[me]||{})[date]:null;
+      if(forMember) jobs=jobs.filter(function(j){return (j.assigned||[]).indexOf(forMember)>=0;});
+      count+=jobs.length;
+      var st=forMember?((S.month.avail||{})[forMember]||{})[date]:null;
       return '<div class="pcell"><div class="pd '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(date.slice(-2))+
-        (st==="ng"?' ✕':'')+'</div>'+jobs.map(function(j){
-          var mine=me&&(j.assigned||[]).indexOf(me)>=0;
-          var names=(j.assigned||[]).map(function(id){return memberName(id);}).join("・");
-          return '<div class="pj'+(mine?" mine":"")+'"><b>'+esc(j.start||"時間未定")+'</b> '+esc(j.site)+
+        (st==="ng"?' ×':'')+'</div>'+jobs.map(function(j){
+          var names=(j.assigned||[]).map(function(id){return memberName(id,j);}).join("・");
+          return '<div class="pj'+(forMember?" mine":"")+'"><b>'+esc(j.start||"時間未定")+'</b> '+esc(j.site)+
             (showAll?'<br>'+esc(names):'')+'</div>';
         }).join("")+'</div>';
     }).join("")+'</div>';
 
+  return '<div class="sheetp"><h1>'+p[0]+'年'+p[1]+'月　作業予定表</h1>'+
+    '<p class="ph">'+esc(who)+'　／　アシストカレンダー'+
+      (forMember?'　（'+count+'件）':'')+'</p>'+grid+
+    '<p class="pfoot">出力：'+now.getFullYear()+'/'+pad(now.getMonth()+1)+'/'+pad(now.getDate())+
+      ' '+pad(now.getHours())+':'+pad(now.getMinutes())+'　株式会社ホームメンテナンス</p></div>';
+}
+
+function viewPrint(){
+  var adm=isAdmin(), me=meId();
+  var sel=S.printFor;   /* null=全員 / 協力者ID / "each"=一人ずつ全員 */
+
+  var sheets;
+  if(!adm){
+    sheets=printSheet(me);
+  }else if(sel==="each"){
+    var list=(S.config.members||[]).filter(function(m){return m.active!==false;});
+    sheets=list.map(function(m){ return printSheet(m.id); }).join('<div class="pbreak"></div>');
+    if(!list.length) sheets='<div class="sheetp"><p>協力者が登録されていません。</p></div>';
+  }else{
+    sheets=printSheet(sel||null);
+  }
+
+  var picker="";
+  if(adm){
+    picker='<div class="pv-pick"><select data-field="printFor">'+
+      '<option value=""'+(!sel?" selected":"")+'>全員ぶん（1枚）</option>'+
+      '<option value="each"'+(sel==="each"?" selected":"")+'>協力者ごとに1枚ずつ</option>'+
+      (S.config.members||[]).filter(function(m){return m.active!==false;}).map(function(m){
+        return '<option value="'+m.id+'"'+(sel===m.id?" selected":"")+'>'+esc(m.name)+' さんのぶん</option>';
+      }).join("")+'</select></div>';
+  }
+
+  var note = (adm && sel==="each")
+    ? "協力者ごとに1枚ずつ、ページを分けて並べています。まとめて印刷して、そのままお渡しできます。"
+    : "「PDF／印刷」をおすと印刷画面がひらきます。iPhoneでは共有メニューから「PDFとして保存」を選べます。ボタンが効かないときは、この画面のスクリーンショットでも同じものが残せます。";
+
   return '<div class="pv"><div class="pv-bar">'+
       '<button data-act="print-close">とじる</button>'+
       '<button class="go" data-act="print-go">PDF／印刷</button></div>'+
-    '<div class="pv-note">「PDF／印刷」をおすと印刷画面がひらきます。iPhoneでは共有メニューから「PDFとして保存」を選べます。'+
-      'ボタンが効かないときは、この画面のスクリーンショットでも同じものが残せます。</div>'+
-    '<div class="sheetp"><h1>'+p[0]+'年'+p[1]+'月　作業予定表</h1>'+
-    '<p class="ph">'+esc(who)+'　／　アシストカレンダー</p>'+grid+
-    '<p class="pfoot">出力：'+p[0]+'/'+pad(p[1])+'　'+now.getFullYear()+'/'+pad(now.getMonth()+1)+'/'+pad(now.getDate())+' '+pad(now.getHours())+':'+pad(now.getMinutes())+'</p>'+
-    '</div></div>';
+    picker+
+    '<div class="pv-note">'+note+'</div>'+
+    sheets+'</div>';
 }
-
-/* ============================================================
-   操作
-   ============================================================ */
 
 /* ============================================================
    操作
@@ -2142,7 +2179,7 @@ document.addEventListener("click", async function(ev){
     case "imp-run": await impRun(); break;
 
     /* 印刷 */
-    case "print": S.printing=true; S.scrollTop=true; render(); break;
+    case "print": S.printing=true; S.printFor=null; S.scrollTop=true; render(); break;
     case "print-close": S.printing=false; render(); break;
     case "print-go":
       try{ window.print(); }
@@ -2181,7 +2218,8 @@ document.addEventListener("input", function(ev){
 });
 document.addEventListener("change", function(ev){
   var f=ev.target.getAttribute&&ev.target.getAttribute("data-field"); if(!f) return;
-  if(f==="annMonth"){ S.annMonth=Number(ev.target.value); render(); }
+  if(f==="printFor"){ S.printFor=ev.target.value||null; S.scrollTop=true; render(); }
+  else if(f==="annMonth"){ S.annMonth=Number(ev.target.value); render(); }
   else if(f==="siteGroup"){ S.siteGroup=ev.target.value; render(); }
 });
 /* 配置表の升を連打しても、文字が選ばれないようにする */
