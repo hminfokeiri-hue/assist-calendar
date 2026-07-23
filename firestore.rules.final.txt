@@ -1,0 +1,76 @@
+rules_version = '2';
+
+// アシストカレンダー — アクセス制御
+// 方針：ログインしただけでは何も読めない。uids/{uid} に登録された役割で判断する。
+//       協力者は「自分が割り当てられた現場」と「自分の出欠」しか読めない。
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function meDoc() {
+      return get(/databases/$(database)/documents/uids/$(request.auth.uid)).data;
+    }
+    function registered() {
+      return signedIn() && exists(/databases/$(database)/documents/uids/$(request.auth.uid));
+    }
+    function isAdmin() {
+      return registered() && meDoc().role == 'admin';
+    }
+    function myMemberId() {
+      return meDoc().memberId;
+    }
+    // 管理者が「協力者に年間予定を見せる」をオンにしているか
+    function annualPublic() {
+      return get(/databases/$(database)/documents/config/app).data.showAnnualToMembers == true;
+    }
+
+    // 役割の紐づけ。本人だけが自分のものを読める。
+    // 管理者はメンバー追加のときに登録できる。消すことは誰にもできない。
+    match /uids/{uid} {
+      allow read:   if signedIn() && request.auth.uid == uid;
+      allow create: if isAdmin() && request.resource.data.role == 'member';
+      allow update, delete: if false;
+    }
+
+    // 名簿。協力者は自分の1件だけ。管理者は全件を読め、追加と、名前・休止の変更ができる。
+    match /members/{memberId} {
+      allow read:   if isAdmin() || (registered() && memberId == myMemberId());
+      allow create: if isAdmin();
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'active']);
+      allow delete: if false;
+    }
+
+    match /config/app {
+      allow read:  if registered();
+      allow write: if isAdmin();
+    }
+
+    // 契約先の一覧は、年間予定を公開しているときだけ協力者も読める。
+    match /config/sites {
+      allow read:  if isAdmin() || (registered() && annualPublic());
+      allow write: if isAdmin();
+    }
+
+    match /annual/{fy} {
+      allow read:  if isAdmin() || (registered() && annualPublic());
+      allow write: if isAdmin();
+    }
+
+    // 現場。協力者は assigned に自分が入っているものだけ。
+    // アプリ側も where('assigned','array-contains', 自分) で問い合わせること。
+    match /months/{ym}/jobs/{jobId} {
+      allow read:  if isAdmin() || (registered() && myMemberId() in resource.data.assigned);
+      allow write: if isAdmin();
+    }
+
+    // 出欠。自分の分は自分で、全員分は管理者が代理入力できる。
+    match /months/{ym}/avail/{memberId} {
+      allow read, write: if isAdmin() || (registered() && memberId == myMemberId());
+    }
+
+    // ここに書かれていないものは、すべて拒否（Firestoreの既定）。
+  }
+}

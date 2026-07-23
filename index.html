@@ -147,6 +147,21 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .hd2 s.none{color:#8A4508}
 
+.btn-add{width:100%; padding:15px; border-radius:12px; font-size:15px; font-weight:800;
+  background:var(--card); border:2px dashed var(--line); color:var(--ink); margin-top:14px}
+.btn-add:active{border-color:var(--ok)}
+.addbox{background:var(--card); border:2px solid var(--ink); border-radius:14px; padding:16px; margin-top:14px}
+.addbox.done{border-color:var(--ok); background:#F2F9F6}
+.addbox>b{font-size:15px; display:block}
+.addbox .hint{margin-top:10px}
+.addbar{display:flex; gap:8px; margin-top:16px}
+.addbar button{flex:1; padding:14px 8px; border-radius:11px; font-size:14px; font-weight:800}
+.addtbl{width:100%; margin-top:12px; border-collapse:collapse}
+.addtbl th{text-align:left; font-size:12px; color:var(--ink2); padding:7px 0; width:80px}
+.addtbl td{font-size:20px; font-weight:800; letter-spacing:.1em; font-variant-numeric:tabular-nums; padding:7px 0}
+.addbox.done p{font-size:12px; color:var(--ink2); line-height:1.7; margin:10px 0 14px}
+.addbox.done .primary{width:100%; padding:13px; border-radius:10px; font-weight:800}
+
 .mcal{font-size:12px; font-weight:800; color:var(--ink); background:#EDF1F0;
   padding:7px 13px; border-radius:8px; font-variant-numeric:tabular-nums}
 .mbar2{display:flex; align-items:center; gap:8px; margin-bottom:12px}
@@ -567,7 +582,7 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import { getFirestore, doc, collection, query, where, getDoc, getDocs, setDoc, deleteDoc,
          writeBatch, onSnapshot, deleteField, enableIndexedDbPersistence }
@@ -617,7 +632,7 @@ var S={
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
   fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
-  imp:null, impBusy:false, impMsg:"", calRich:true, hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null
+  imp:null, impBusy:false, impMsg:"", calRich:true, hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false
 };
 var _lastTab=null;
 var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
@@ -643,6 +658,7 @@ function canSeeAnnual(){ return isAdmin() || S.config.showAnnualToMembers!==fals
 /* ============================================================
    認証
    ============================================================ */
+var ADMIN_ID="0001";
 function idToEmail(loginId){ return String(loginId).trim().toLowerCase()+"@"+ID_DOMAIN; }
 
 async function doLogin(loginId, password){
@@ -658,6 +674,7 @@ async function doLogin(loginId, password){
 }
 
 onAuthStateChanged(auth, async function(user){
+  if(S.addingMember) return;   /* メンバー追加のあいだは、いったん切り替わるだけなので無視する */
   unsubAll();
   if(!user){
     S.session=null; S.authed=false; S.booting=false; S.loginBusy=false;
@@ -1805,6 +1822,7 @@ function viewTeam(){
     '<div class="notebox"><b>メンバーの追加・暗証番号の再発行</b>'+
       '<p>ログイン情報はFirebaseが管理しています。追加や暗証番号の変更は、Firebaseコンソールの「Authentication」か、'+
       'リポジトリの <code>scripts/seed.mjs</code> から行ってください。手順はREADMEに書いています。</p></div>'+
+    addMemberForm()+
     '<h2 class="secttl mt">協力者に見せるもの</h2>'+
     '<div class="switch-row"><div><b>年間の履行スケジュール</b>'+
       '<small>協力者の画面に「年間予定」タブを出します。閲覧のみで、編集はできません。</small></div>'+
@@ -1812,6 +1830,104 @@ function viewTeam(){
     '<p class="hint">この切り替えはサーバー側の権限にも連動します。オフのあいだは、協力者は年間予定も契約先一覧も読み取れません。</p>';
 }
 
+
+
+/* ---------- メンバーを追加する ----------
+   Firebase のしくみ上、新しいログインを作ると、いったんその人でログインした状態になります。
+   そのため、作ったあとに管理者へ戻ります。戻るのに暗証番号が要ります。 */
+function nextLoginId(){
+  var n=1000;
+  (S.config.members||[]).forEach(function(m){
+    var v=Number(m.loginId);
+    if(isFinite(v) && v>n) n=v;
+  });
+  return String(n+1);
+}
+function newPin(){ return String(Math.floor(100000+Math.random()*900000)); }
+
+async function addMember(){
+  var name=String(S.addName||"").trim();
+  var lid=String(S.addId||"").trim();
+  var pin=String(S.addPin||"").trim();
+  var apin=String(S.addAdminPin||"").trim();
+
+  if(!name){ S.addErr="お名前を入れてください"; render(); return; }
+  if(!/^\d{3,12}$/.test(lid)){ S.addErr="IDは数字で入れてください"; render(); return; }
+  if((S.config.members||[]).some(function(m){ return String(m.loginId)===lid; })){
+    S.addErr="そのIDはすでに使われています"; render(); return; }
+  if(lid===ADMIN_ID){ S.addErr="そのIDは管理者用です。別の番号にしてください"; render(); return; }
+  if(pin.length<6){ S.addErr="暗証番号は6けた以上にしてください"; render(); return; }
+  if(apin.length<6){ S.addErr="あなた（管理者）の暗証番号を入れてください"; render(); return; }
+
+  S.addBusy=true; S.addErr=""; render();
+  S.addingMember=true;
+  var newUid=null;
+  try{
+    /* 1) まず管理者の暗証番号が合っているか確かめる */
+    await signInWithEmailAndPassword(auth, idToEmail(ADMIN_ID), apin);
+
+    /* 2) 新しいログインを作る（ここで、いったんその人になる） */
+    var cred=await createUserWithEmailAndPassword(auth, idToEmail(lid), pin);
+    newUid=cred.user.uid;
+
+    /* 3) 管理者に戻る */
+    await signInWithEmailAndPassword(auth, idToEmail(ADMIN_ID), apin);
+
+    /* 4) 役割と名簿を登録する */
+    var mid="m"+Date.now().toString(36);
+    await setDoc(doc(db,"uids",newUid), {role:"member", memberId:mid});
+    await setDoc(doc(db,"members",mid), {name:name, loginId:lid, active:true, uid:newUid});
+
+    S.addingMember=false;
+    S.addDone={name:name, loginId:lid, pin:pin};
+    S.addOpen=false; S.addName=""; S.addId=""; S.addPin=""; S.addAdminPin=""; S.addBusy=false;
+    render();
+  }catch(e){
+    S.addingMember=false;
+    S.addBusy=false;
+    var c=(e && e.code)||"";
+    S.addErr =
+      c==="auth/wrong-password"||c==="auth/invalid-credential" ? "あなた（管理者）の暗証番号が違います"
+      : c==="auth/email-already-in-use" ? "そのIDはすでに使われています。別の番号にしてください"
+      : c==="auth/weak-password" ? "暗証番号は6けた以上にしてください"
+      : c==="permission-denied" ? "登録する権限がありません。Firestoreのルールをご確認ください"
+      : ("うまくいきませんでした（"+(c||e.message||e)+"）");
+    if(newUid) S.addErr += "　※ログインだけ作られている可能性があります。同じIDで作り直してください。";
+    render();
+    /* 念のため、管理者に戻れているか確かめる */
+    try{ if(apin) await signInWithEmailAndPassword(auth, idToEmail(ADMIN_ID), apin); }catch(e2){}
+  }
+}
+
+function addMemberForm(){
+  if(S.addDone){
+    return '<div class="addbox done"><b>'+esc(S.addDone.name)+' さんを追加しました</b>'+
+      '<table class="addtbl"><tr><th>ID</th><td>'+esc(S.addDone.loginId)+'</td></tr>'+
+      '<tr><th>暗証番号</th><td>'+esc(S.addDone.pin)+'</td></tr></table>'+
+      '<p>この2つをご本人にお伝えください。あとから見ることはできません。</p>'+
+      '<button class="primary" data-act="add-close">とじる</button></div>';
+  }
+  if(!S.addOpen){
+    return '<button class="btn-add" data-act="add-open">＋ メンバーを追加する</button>';
+  }
+  return '<div class="addbox">'+
+    '<b>新しいメンバー</b>'+
+    '<label class="f"><span>お名前</span><input value="'+esc(S.addName||"")+'" data-field="addName" placeholder="例：山田太郎"></label>'+
+    '<div class="f-row">'+
+      '<label class="f"><span>ID（数字）</span><input inputmode="numeric" value="'+esc(S.addId||"")+'" data-field="addId"></label>'+
+      '<label class="f"><span>暗証番号（6けた以上）</span><input inputmode="numeric" value="'+esc(S.addPin||"")+'" data-field="addPin"></label>'+
+    '</div>'+
+    '<label class="f"><span>あなた（管理者）の暗証番号</span>'+
+      '<input type="password" inputmode="numeric" value="'+esc(S.addAdminPin||"")+'" data-field="addAdminPin" placeholder="••••••"></label>'+
+    '<p class="hint">新しいログインを作るとき、いったんその方の画面に切り替わります。'+
+      'すぐ管理者に戻すために、あなたの暗証番号が必要です。</p>'+
+    (S.addErr?'<p class="err">'+esc(S.addErr)+'</p>':'')+
+    '<div class="addbar">'+
+      '<button class="ghost" data-act="add-close">やめる</button>'+
+      '<button class="primary" data-act="add-go"'+(S.addBusy?" disabled":"")+'>'+
+        (S.addBusy?"追加しています…":"追加する")+'</button>'+
+    '</div></div>';
+}
 
 /* ---------- 協力者ひとりぶんの予定（管理者用） ---------- */
 function memberSheet(){
@@ -2110,6 +2226,12 @@ document.addEventListener("click", async function(ev){
     case "day": S.openDay=v; S.editing=null; S.availDraft={}; render(); break;
     case "site": S.openSite=id; S.addingPlanTo=null; S.hist=null; render(); break;
     case "member-view": S.viewMember=id; render(); break;
+    case "add-open":
+      S.addOpen=true; S.addDone=null; S.addErr="";
+      S.addName=""; S.addId=nextLoginId(); S.addPin=newPin(); S.addAdminPin="";
+      render(); break;
+    case "add-close": S.addOpen=false; S.addDone=null; S.addErr=""; render(); break;
+    case "add-go": await addMember(); break;
     case "mday": S.openDay=v; S.editing=null; S.availDraft={}; render(); break;
     case "mmon": {
       S.ym=addMonths(S.ym,Number(v));
@@ -2385,6 +2507,7 @@ document.addEventListener("input", function(ev){
   if(f==="loginId"){ S.loginId=val; S.loginErr=""; }
   else if(f==="memberPin"){ S.memberPin=val; S.loginErr=""; }
   else if(f==="newService") S.newService=val;
+  else if(f==="addName"||f==="addId"||f==="addPin"||f==="addAdminPin"){ S[f]=val; S.addErr=""; }
   else if(f==="imp-start"||f==="imp-site"){
     var ii=Number(ev.target.getAttribute("data-i"));
     if(S.imp && S.imp.all[ii]) S.imp.all[ii][f==="imp-start"?"start":"site"]=val;
