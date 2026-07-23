@@ -634,6 +634,11 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .mr-j b.t-sawa{color:#0E7C63 !important}
 .lg-t{color:#2B6CB0; font-weight:700}
 .lg-s{color:#0E7C63; font-weight:700}
+
+/* 印刷前の確認画面（用紙のプレビュー） */
+.pj.t-tottori{border-left-color:#2B6CB0 !important; color:#2B6CB0; background:#F1F6FB}
+.pj.t-sawa{border-left-color:#0E7C63 !important; color:#0E7C63; background:#F1F8F6}
+.pj.t-tottori b,.pj.t-sawa b{color:#333}
 .mpin.ro{display:inline-block; line-height:26px; background:#F2F5F4; color:var(--ink2); border-color:transparent}
 .notebox{background:#FFFBF0; border:1px solid #F0DFB4; border-radius:12px; padding:13px 14px; margin-top:14px}
 .notebox b{font-size:13px}
@@ -2355,12 +2360,14 @@ function printSheet(forMember){
   return '<div class="sheetp"><h1>'+p[0]+'年'+p[1]+'月　作業予定表</h1>'+
     '<p class="ph">'+esc(who)+'　／　アシストカレンダー'+
       (forMember?'　（'+count+'件）':'')+'</p>'+grid+
+    '<div class="legend"><i class="t">■</i> 鳥取県　<i class="s">■</i> さわ病院'+
+      (forMember?'　<i class="m">■</i> 自分の担当':'')+'</div>'+
     '<p class="pfoot">出力：'+now.getFullYear()+'/'+pad(now.getMonth()+1)+'/'+pad(now.getDate())+
       ' '+pad(now.getHours())+':'+pad(now.getMinutes())+'　株式会社ホームメンテナンス</p></div>';
 }
 
 var PRINT_CSS = [
-"*{box-sizing:border-box}",
+"*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}",
 "body{margin:0;padding:14px;background:#7B8590;",
 "  font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans','Noto Sans JP','Yu Gothic',system-ui,sans-serif;",
 "  -webkit-font-smoothing:antialiased}",
@@ -2378,20 +2385,31 @@ var PRINT_CSS = [
 ".pcell{min-height:78px;border-right:1px solid #333;border-bottom:1px solid #333;padding:2px 3px}",
 ".pcell .pd{font-size:11px;font-weight:800;font-variant-numeric:tabular-nums}",
 ".pcell .pd.sun{color:#B3352C} .pcell .pd.sat{color:#2B6CB0}",
-".pj{font-size:9px;line-height:1.35;margin-top:2px;border-left:2px solid #444;padding-left:3px}",
-".pj b{font-weight:800}",
+".pj{font-size:9px;line-height:1.35;margin-top:2px;border-left:2.5px solid #444;padding-left:4px}",
+".pj b{font-weight:800;color:#222}",
 ".pj.mine{border-left-color:#C08A00;background:#FFF8E4}",
-".pj.t-tottori{border-left-color:#2B6CB0;color:#2B6CB0}",
-".pj.t-sawa{border-left-color:#0E7C63;color:#0E7C63}",
+".pj.t-tottori{border-left-color:#2B6CB0;color:#2B6CB0;background:#EEF4FA;font-weight:700}",
+".pj.t-sawa{border-left-color:#0E7C63;color:#0E7C63;background:#EDF6F2;font-weight:700}",
+".pj.t-tottori b,.pj.t-sawa b{color:#222}",
+".legend{display:flex;gap:16px;margin-top:10px;font-size:9px;color:#666}",
+".legend i{font-style:normal;font-weight:800}",
+".legend i.t{color:#2B6CB0} .legend i.s{color:#0E7C63} .legend i.m{color:#C08A00}",
 ".pfoot{margin-top:12px;font-size:9px;color:#666;text-align:right}",
 ".pbreak{height:0}",
 "@page{size:A4 landscape;margin:8mm}",
 "@media print{",
-"  body{background:#fff;padding:0}",
+"  body{background:#fff;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}",
 "  .tools{display:none}",
-"  .sheetp{margin:0;padding:0;box-shadow:none;border-radius:0;break-inside:avoid}",
+"  .sheetp{margin:0;padding:0;box-shadow:none;border-radius:0;break-inside:avoid;page-break-inside:avoid}",
+"  .sheetp h1{font-size:15px}",
+"  .sheetp .ph{font-size:9px;margin:3px 0 7px}",
 "  .pbreak{break-after:page;page-break-after:always}",
-"  .pcell{min-height:62px}",
+"  .pcell{min-height:0;height:auto;padding:1px 2px}",
+"  .pwd{padding:2px 0}",
+"  .pj{font-size:8px;line-height:1.25;margin-top:1px;padding-left:3px}",
+"  .pcell .pd{font-size:9.5px}",
+"  .legend{margin-top:5px;font-size:8px}",
+"  .pfoot{margin-top:4px;font-size:8px}",
 "}"
 ].join("\n");
 
