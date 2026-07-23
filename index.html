@@ -342,6 +342,7 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .gtable tr.newday .gd,.gtable tr.newday .gs,.gtable tr.newday td{border-top:2px solid var(--line)}
 .gtable tr.sunrow .gd,.gtable tr.sunrow .gs{background:#FDF6F5}
 .gtable tr.satrow .gd,.gtable tr.satrow .gs{background:#F4F7FB}
+.gtable tr.todayrow .gd,.gtable tr.todayrow .gs{background:#FFFBF0; box-shadow:inset 3px 0 0 var(--hi)}
 .gfoot td,.gfoot th{position:sticky; bottom:0; z-index:2; background:#F7F9F8; border-top:2px solid var(--line);
   font-weight:800; font-size:11px; text-align:center; color:var(--ink2)}
 .gfoot .gs{z-index:4} .gfoot .gd{z-index:4}
@@ -608,6 +609,31 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
   .pcell{min-height:62px}
 }
 @media (prefers-reduced-motion:reduce){ *{animation:none !important; transition:none !important} }
+
+/* ============================================================
+   契約先ごとの色分け（鳥取県＝青、さわ病院＝緑）
+   ここは、ほかの見た目の指定より後ろに置いて確実に効かせる
+   ============================================================ */
+.jitem.t-tottori{border-left-color:#2B6CB0 !important; background:#F1F6FB}
+.jitem.t-tottori s{color:#2B6CB0 !important; font-weight:700}
+.jitem.t-tottori b{color:#2B6CB0 !important}
+.jitem.t-sawa{border-left-color:#0E7C63 !important; background:#F1F8F6}
+.jitem.t-sawa s{color:#0E7C63 !important; font-weight:700}
+.jitem.t-sawa b{color:#0E7C63 !important}
+/* 自分の担当や人員不足の色より、契約先の色をやや優先する */
+.jitem.me.t-tottori,.jitem.short.t-tottori{background:#EAF2FA}
+.jitem.me.t-sawa,.jitem.short.t-sawa{background:#EAF5F1}
+
+.jsite.t-tottori{color:#2B6CB0 !important}
+.jsite.t-sawa{color:#0E7C63 !important}
+.mysite.t-tottori{color:#2B6CB0 !important}
+.mysite.t-sawa{color:#0E7C63 !important}
+.gs b.t-tottori{color:#2B6CB0 !important}
+.gs b.t-sawa{color:#0E7C63 !important}
+.mr-j b.t-tottori{color:#2B6CB0 !important}
+.mr-j b.t-sawa{color:#0E7C63 !important}
+.lg-t{color:#2B6CB0; font-weight:700}
+.lg-s{color:#0E7C63; font-weight:700}
 .mpin.ro{display:inline-block; line-height:26px; background:#F2F5F4; color:var(--ink2); border-color:transparent}
 .notebox{background:#FFFBF0; border:1px solid #F0DFB4; border-radius:12px; padding:13px 14px; margin-top:14px}
 .notebox b{font-size:13px}
