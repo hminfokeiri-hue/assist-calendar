@@ -932,8 +932,9 @@ function viewApp(){
   else if(S.tab==="grid") h+=(adm?viewGrid():viewList());
   else if(S.tab==="import") h+=(adm?viewImport():viewList());
   else if(S.tab==="annual") h+=viewAnnual();
-  else if(S.tab==="sites") h+=viewSites();
-  else h+=viewTeam();
+  else if(S.tab==="sites") h+=(adm?viewSites():viewList());
+  else if(S.tab==="team") h+=(adm?viewTeam():viewList());
+  else h+=(adm?viewList():viewHome());
   h+='</main>';
 
   if(S.openDay) h+=viewDaySheet();
@@ -2189,20 +2190,90 @@ function printSheet(forMember){
       ' '+pad(now.getHours())+':'+pad(now.getMinutes())+'　株式会社ホームメンテナンス</p></div>';
 }
 
-function viewPrint(){
-  var adm=isAdmin(), me=meId();
-  var sel=S.printFor;   /* null=全員 / 協力者ID / "each"=一人ずつ全員 */
+var PRINT_CSS = [
+"*{box-sizing:border-box}",
+"body{margin:0;padding:14px;background:#7B8590;",
+"  font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans','Noto Sans JP','Yu Gothic',system-ui,sans-serif;",
+"  -webkit-font-smoothing:antialiased}",
+".tools{display:flex;gap:8px;margin-bottom:14px}",
+".tools button{flex:1;padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:800;",
+"  font-family:inherit;cursor:pointer;background:#141E2C;color:#fff}",
+".tools button+button{background:#fff;color:#141E2C}",
+".sheetp{background:#fff;padding:16px;border-radius:6px;margin-bottom:14px;box-shadow:0 4px 18px rgba(0,0,0,.2)}",
+".sheetp h1{font-size:18px;text-align:center;margin:0;font-weight:800}",
+".sheetp .ph{text-align:center;font-size:11px;color:#555;margin:5px 0 14px}",
+".pgrid{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid #333;border-left:1px solid #333}",
+".pwd{text-align:center;font-size:10px;font-weight:800;padding:3px 0;",
+"  border-right:1px solid #333;border-bottom:1px solid #333;background:#EEE}",
+".pwd.sun{color:#B3352C} .pwd.sat{color:#2B6CB0}",
+".pcell{min-height:78px;border-right:1px solid #333;border-bottom:1px solid #333;padding:2px 3px}",
+".pcell .pd{font-size:11px;font-weight:800;font-variant-numeric:tabular-nums}",
+".pcell .pd.sun{color:#B3352C} .pcell .pd.sat{color:#2B6CB0}",
+".pj{font-size:9px;line-height:1.35;margin-top:2px;border-left:2px solid #444;padding-left:3px}",
+".pj b{font-weight:800}",
+".pj.mine{border-left-color:#C08A00;background:#FFF8E4}",
+".pj.t-tottori{border-left-color:#2B6CB0;color:#2B6CB0}",
+".pj.t-sawa{border-left-color:#0E7C63;color:#0E7C63}",
+".pfoot{margin-top:12px;font-size:9px;color:#666;text-align:right}",
+".pbreak{height:0}",
+"@page{size:A4 landscape;margin:8mm}",
+"@media print{",
+"  body{background:#fff;padding:0}",
+"  .tools{display:none}",
+"  .sheetp{margin:0;padding:0;box-shadow:none;border-radius:0;break-inside:avoid}",
+"  .pbreak{break-after:page;page-break-after:always}",
+"  .pcell{min-height:62px}",
+"}"
+].join("\n");
 
-  var sheets;
-  if(!adm){
-    sheets=printSheet(me);
-  }else if(sel==="each"){
+/* 印刷する用紙ぜんぶ */
+function printSheetsHtml(){
+  var adm=isAdmin(), me=meId(), sel=S.printFor;
+  if(!adm) return printSheet(me);
+  if(sel==="each"){
     var list=(S.config.members||[]).filter(function(m){return m.active!==false;});
-    sheets=list.map(function(m){ return printSheet(m.id); }).join('<div class="pbreak"></div>');
-    if(!list.length) sheets='<div class="sheetp"><p>協力者が登録されていません。</p></div>';
-  }else{
-    sheets=printSheet(sel||null);
+    if(!list.length) return '<div class="sheetp"><p>協力者が登録されていません。</p></div>';
+    return list.map(function(m){ return printSheet(m.id); }).join('<div class="pbreak"></div>');
   }
+  return printSheet(sel||null);
+}
+function printTitle(){
+  var p=S.ym.split("-");
+  var who = !isAdmin() ? (memberName(meId())||"") :
+    (S.printFor==="each" ? "協力者ごと" : (S.printFor ? memberName(S.printFor) : "全員"));
+  return p[0]+"年"+Number(p[1])+"月 作業予定表 "+who;
+}
+
+/* 別の画面をひらいて印刷する。この画面のまま印刷すると、
+   環境によっては何も起きないことがあるため。 */
+function doPrint(){
+  var sheets=printSheetsHtml(), title=printTitle();
+  var w=null;
+  try{ w=window.open("", "_blank"); }catch(e){ w=null; }
+  if(w && w.document){
+    try{
+      w.document.open();
+      w.document.write('<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">'+
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'+
+        '<title>'+esc(title)+'</title><style>'+PRINT_CSS+'</style></head><body>'+
+        '<div class="tools"><button onclick="window.print()">印刷／PDFで保存</button>'+
+        '<button onclick="window.close()">とじる</button></div>'+
+        sheets+'</body></html>');
+      w.document.close();
+      var go=function(){ try{ w.focus(); w.print(); }catch(e){} };
+      if(w.document.readyState==="complete") setTimeout(go, 350);
+      else w.onload=function(){ setTimeout(go, 350); };
+      return;
+    }catch(e){ /* だめならこの画面のまま印刷する */ }
+  }
+  try{ window.print(); }
+  catch(e){ flash("印刷をひらけませんでした。画面のスクリーンショットで保存してください"); }
+}
+
+function viewPrint(){
+  var adm=isAdmin();
+  var sel=S.printFor;
+  var sheets=printSheetsHtml();
 
   var picker="";
   if(adm){
@@ -2217,8 +2288,9 @@ function viewPrint(){
   }
 
   var note = (adm && sel==="each")
-    ? "協力者ごとに1枚ずつ、ページを分けて並べています。まとめて印刷して、そのままお渡しできます。"
-    : "「PDF／印刷」をおすと印刷画面がひらきます。iPhoneでは共有メニューから「PDFとして保存」を選べます。ボタンが効かないときは、この画面のスクリーンショットでも同じものが残せます。";
+    ? "協力者ごとに1枚ずつ、ページを分けて並べています。「PDF／印刷」をおすと別の画面がひらくので、まとめて印刷できます。"
+    : "「PDF／印刷」をおすと別の画面がひらき、印刷の設定が出ます。iPhoneでは「PDFとして保存」も選べます。"+
+      "別の画面がひらかないときは、ブラウザのポップアップの設定をご確認ください。";
 
   return '<div class="pv"><div class="pv-bar">'+
       '<button data-act="print-close">とじる</button>'+
@@ -2531,10 +2603,7 @@ document.addEventListener("click", async function(ev){
     case "print": S.printing=true; S.printFor=null; S.scrollTop=true; render(); break;
     case "print-for": S.printFor=v||null; S.scrollTop=true; render(); break;
     case "print-close": S.printing=false; render(); break;
-    case "print-go":
-      try{ window.print(); }
-      catch(e){ flash("この画面では印刷をひらけませんでした。スクリーンショットで保存してください"); }
-      break;
+    case "print-go": doPrint(); break;
   }
 });
 
