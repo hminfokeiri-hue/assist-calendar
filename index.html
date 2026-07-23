@@ -194,6 +194,47 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .gfoot .gs{z-index:4} .gfoot .gd{z-index:4}
 .ghint{font-size:11px; color:var(--ink2); margin:10px 0 0; line-height:1.6}
 
+/* 取込 */
+.drop{border:2px dashed var(--line); border-radius:14px; padding:30px 18px; text-align:center; background:var(--card);
+  transition:border-color .15s, background .15s}
+.drop.over{border-color:var(--ok); background:#EDF6F3}
+.drop b{display:block; font-size:15px}
+.drop small{display:block; font-size:12px; color:var(--ink2); margin-top:6px; line-height:1.7}
+.drop button{margin-top:14px; background:var(--ink); color:#fff; padding:12px 22px; border-radius:10px; font-size:14px; font-weight:800}
+.sheetlist{margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.srow{display:flex; align-items:center; gap:10px; padding:11px 13px; border-bottom:1px solid #F0F2F1; width:100%; text-align:left}
+.srow:last-child{border-bottom:none}
+.srow.off{opacity:.42}
+.sbox{flex:0 0 22px; width:22px; height:22px; border-radius:6px; border:2px solid var(--line);
+  display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:transparent}
+.srow.on .sbox{background:var(--ok); border-color:var(--ok); color:#fff}
+.smid{flex:1; min-width:0}
+.smid b{font-size:13px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.smid small{font-size:11px; color:var(--ink2)}
+.scnt{font-size:12px; font-weight:800; color:var(--ink2); font-variant-numeric:tabular-nums}
+.prev{margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:12px; max-height:44vh; overflow:auto}
+.prev table{width:100%; border-collapse:collapse; font-size:12px}
+.prev th{position:sticky; top:0; background:#F7F9F8; font-size:10px; color:var(--ink2); padding:7px 8px; text-align:left; z-index:1}
+.prev td{padding:7px 8px; border-top:1px solid #F0F2F1}
+.prev td.d{font-variant-numeric:tabular-nums; white-space:nowrap; font-weight:700}
+.prev td.t{font-variant-numeric:tabular-nums; color:var(--ink2); white-space:nowrap}
+.prev tr.newday td{border-top:1px solid var(--line)}
+.prev input{width:100%; border:none; background:transparent; font-size:12px; padding:2px; font-family:inherit}
+.prev input:focus{background:#FFFBF0; outline:2px solid var(--hi); border-radius:4px}
+.prev .del{color:var(--ng); font-weight:800; font-size:14px; padding:0 6px}
+.impsum{display:flex; flex-wrap:wrap; gap:7px; margin-top:12px}
+.impsum span{font-size:11px; font-weight:700; background:var(--card); border:1px solid var(--line);
+  padding:6px 11px; border-radius:99px}
+.impsum span.warn{background:#FDEEE0; color:#8A4508; border-color:#F3CFA6}
+.mode{display:flex; gap:8px; margin-top:14px}
+.mode button{flex:1; padding:12px 8px; border:2px solid var(--line); border-radius:10px; background:var(--card);
+  font-size:12px; font-weight:700; line-height:1.5}
+.mode button.on{background:var(--ink); color:#fff; border-color:var(--ink)}
+.mode button small{display:block; font-size:10px; font-weight:400; opacity:.75; margin-top:2px}
+.impbar{display:flex; gap:8px; margin-top:16px}
+.impbar button{flex:1; padding:15px 8px; border-radius:11px; font-size:14px; font-weight:800}
+.busy{font-size:12px; color:var(--ink2); margin-top:12px}
+
 /* 保存バー */
 .save-bar{position:sticky; bottom:0; display:flex; align-items:center; gap:8px; margin-top:12px;
   padding:11px; background:#FFF7E3; border:2px solid var(--hi); border-radius:12px}
@@ -411,10 +452,11 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-import { getFirestore, doc, collection, query, where, getDoc, setDoc, deleteDoc,
-         onSnapshot, deleteField, enableIndexedDbPersistence }
+import { getFirestore, doc, collection, query, where, getDoc, getDocs, setDoc, deleteDoc,
+         writeBatch, onSnapshot, deleteField, enableIndexedDbPersistence }
   from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { firebaseConfig, ID_DOMAIN } from "./firebase-config.js";
+import { IMP } from "./import-parser.js";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth  = getAuth(fbApp);
@@ -457,7 +499,8 @@ var S={
   openDay:null, openSite:null, tab:"home", syncedAt:null, toast:null,
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
-  fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null
+  fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
+  imp:null, impBusy:false, impMsg:""
 };
 var _lastTab=null;
 var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
@@ -679,7 +722,7 @@ function viewApp(){
 
 
   var tabs = adm
-    ? [["list","予定"],["grid","配置表"],["annual","年間予定"],["sites","契約先"],["team","メンバー"]]
+    ? [["list","予定"],["grid","配置表"],["annual","年間予定"],["sites","契約先"],["import","取込"],["team","メンバー"]]
     : [["home","出欠カレンダー"],["list","予定リスト"]].concat(canSeeAnnual()?[["annual","年間予定"]]:[]);
   h+='<nav class="tabs">'+tabs.map(function(t){
     return '<button class="tab'+(S.tab===t[0]?" on":"")+'" data-act="tab" data-v="'+t[0]+'">'+t[1]+'</button>';
@@ -688,6 +731,7 @@ function viewApp(){
   if(S.tab==="home") h+=viewHome();
   else if(S.tab==="list"||S.tab==="calendar") h+=viewList();
   else if(S.tab==="grid") h+=(adm?viewGrid():viewList());
+  else if(S.tab==="import") h+=(adm?viewImport():viewList());
   else if(S.tab==="annual") h+=viewAnnual();
   else if(S.tab==="sites") h+=viewSites();
   else h+=viewTeam();
@@ -962,6 +1006,239 @@ function viewSites(){
     '<div class="add-row"><input placeholder="例：貯水槽清掃" value="'+esc(S.newService)+'" data-field="newService">'+
       '<button class="primary" data-act="svc-add">追加</button></div>';
   return h;
+}
+
+
+/* ---------- 取込 ---------- */
+function viewImport(){
+  var I=S.imp;
+  var h='<h2 class="secttl">エクセル・PDFから取り込む</h2>'+
+    '<p class="hint">いつもお使いのカレンダー表や人員配置表を、そのまま読み込めます。'+
+    '読み取った内容は取り込む前に画面で直せます。</p>';
+
+  if(!I){
+    h+='<div class="drop" id="drop"><b>ファイルをここに置く</b>'+
+      '<small>エクセル（.xlsx / .xls）・CSV・PDF に対応<br>'+
+      '月ごとのカレンダー表、日付が縦に並んだ一覧表、どちらも読めます</small>'+
+      '<button data-act="imp-pick">ファイルをえらぶ</button>'+
+      '<input type="file" id="impFile" accept=".xlsx,.xls,.csv,.pdf" style="display:none">'+
+      '</div>'+
+      (S.impBusy?'<p class="busy">読み取っています…</p>':'')+
+      (S.impMsg?'<div class="err">'+esc(S.impMsg)+'</div>':'');
+    return h;
+  }
+
+  /* 読み取り後 */
+  var rows=impRows();
+  var months={}, sites={};
+  rows.forEach(function(r){
+    months[r.date.slice(0,7)]=(months[r.date.slice(0,7)]||0)+1;
+    sites[r.site]=1;
+  });
+  var known={}; (S.config.sites||[]).forEach(function(x){ known[x.name.replace(/[\s・]/g,"")]=1; });
+  var unknown=Object.keys(sites).filter(function(n){ return !known[n.replace(/[\s・]/g,"")]; });
+
+  h+='<div class="impsum"><span>'+esc(I.fileName)+'</span>'+
+     '<span>'+rows.length+'件</span>'+
+     Object.keys(months).sort().map(function(k){
+       return '<span>'+k.replace("-","年")+'月 '+months[k]+'</span>'; }).join("")+
+     (unknown.length?'<span class="warn">契約先にない名前 '+unknown.length+'</span>':'')+
+     '</div>';
+
+  if(I.sheets.length>1){
+    h+='<h3 class="secttl mt2" style="font-size:14px">どのシートを使いますか</h3>'+
+      '<div class="sheetlist">'+I.sheets.map(function(sh,i){
+        var on=I.use.indexOf(sh.name)>=0;
+        return '<button class="srow'+(on?" on":"")+(sh.n?"":" off")+'" data-act="imp-sheet" data-v="'+esc(sh.name)+'"'+
+          (sh.n?'':' disabled')+'><span class="sbox">✓</span><span class="smid">'+
+          '<b>'+esc(sh.name)+'</b><small>'+(sh.n?Object.keys(sh.months).sort().join("・"):"読み取れる予定なし")+'</small></span>'+
+          '<span class="scnt">'+sh.n+'</span></button>';
+      }).join("")+'</div>'+
+      '<p class="hint">「提出用」「社内」など同じ月のシートが複数あるときは、ひとつだけ選んでください。</p>';
+  }
+
+  h+='<h3 class="secttl mt2" style="font-size:14px">取り込む内容（'+rows.length+'件）</h3>'+
+     '<p class="hint">名前や時間はこの場で直せます。いらない行は ✕ で消せます。</p>'+
+     '<div class="prev"><table><thead><tr><th style="width:78px">日付</th><th style="width:58px">時間</th>'+
+     '<th>現場名</th><th style="width:34px"></th></tr></thead><tbody>';
+  var prevDate="";
+  h+=rows.slice(0,400).map(function(r,i){
+    var nd=r.date!==prevDate; prevDate=r.date;
+    var d=parseYmd(r.date);
+    var bad=!known[r.site.replace(/[\s・]/g,"")];
+    return '<tr class="'+(nd?"newday":"")+'"><td class="d">'+(nd?(d.getMonth()+1)+"/"+d.getDate()+"("+WD[d.getDay()]+")":"")+'</td>'+
+      '<td class="t"><input value="'+esc(r.start||"")+'" placeholder="--:--" data-field="imp-start" data-i="'+r._i+'"></td>'+
+      '<td><input value="'+esc(r.site)+'" data-field="imp-site" data-i="'+r._i+'"'+
+        (bad?' style="color:#8A4508"':'')+'></td>'+
+      '<td><button class="del" data-act="imp-drop" data-v="'+r._i+'">✕</button></td></tr>';
+  }).join("");
+  h+='</tbody></table></div>';
+  if(rows.length>400) h+='<p class="hint">画面には最初の400件だけ出しています。取り込みは全'+rows.length+'件おこなわれます。</p>';
+
+  h+='<h3 class="secttl mt2" style="font-size:14px">入れ方</h3>'+
+     '<div class="mode">'+
+       '<button class="'+(I.mode==="merge"?"on":"")+'" data-act="imp-mode" data-v="merge">'+
+         '追加する<small>いまの予定はそのまま、同じ日・同じ現場は時間だけ更新</small></button>'+
+       '<button class="'+(I.mode==="replace"?"on":"")+'" data-act="imp-mode" data-v="replace">'+
+         '入れ替える<small>取り込む月の予定をいったん消してから入れ直す</small></button>'+
+     '</div>';
+  if(I.mode==="replace"){
+    h+='<div class="err">'+Object.keys(months).sort().map(function(k){return k.replace("-","年")+"月";}).join("・")+
+       ' の予定と人員配置が、いったん全部消えます。よろしければ進んでください。</div>';
+  }
+
+  h+='<div class="impbar"><button class="ghost" data-act="imp-cancel">やめる</button>'+
+     '<button class="primary" data-act="imp-run"'+(S.impBusy||!rows.length?" disabled":"")+'>'+
+     (S.impBusy?"取り込み中…":"取り込む（"+rows.length+"件）")+'</button></div>'+
+     (S.impMsg?'<p class="busy">'+esc(S.impMsg)+'</p>':'');
+  return h;
+}
+
+function impRows(){
+  var I=S.imp; if(!I) return [];
+  var out=[];
+  I.all.forEach(function(r,i){
+    if(I.drop[i]) return;
+    if(I.use.indexOf(r._sheet)<0) return;
+    out.push(Object.assign({},r,{_i:i}));
+  });
+  return out;
+}
+
+/* ファイルを読む */
+async function impLoad(file){
+  S.impBusy=true; S.impMsg=""; render();
+  try{
+    IMP.setExclude((S.config.members||[]).map(function(m){return m.name;}));
+    var name=file.name, lower=name.toLowerCase(), sheets=[];
+    var thisYear=Number(S.ym.split("-")[0]);
+
+    if(lower.endsWith(".pdf")){
+      var pdfjs=await import("https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs");
+      pdfjs.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs";
+      var pdf=await pdfjs.getDocument({data:await file.arrayBuffer()}).promise;
+      var lines=[];
+      for(var p=1;p<=pdf.numPages;p++){
+        var page=await pdf.getPage(p), tc=await page.getTextContent();
+        var byY={};
+        tc.items.forEach(function(it){
+          var y=Math.round(it.transform[5]);
+          (byY[y]=byY[y]||[]).push({x:it.transform[4], s:it.str});
+        });
+        Object.keys(byY).sort(function(a,b){return b-a;}).forEach(function(y){
+          lines.push(byY[y].sort(function(a,b){return a.x-b.x;}).map(function(o){return o.s;}).join(" "));
+        });
+      }
+      var res=IMP.fromLines(lines, thisYear);
+      sheets=[{name:name, rows:res.rows, months:monthsOfRows(res.rows), n:res.rows.length}];
+    } else {
+      var XLSX=await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
+      var wb=XLSX.read(await file.arrayBuffer(), {raw:false});
+      var raw=wb.SheetNames.map(function(n){
+        return {name:n, grid:XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:"",raw:false,blankrows:true})};
+      });
+      sheets=IMP.scan(raw, thisYear);
+    }
+
+    var withRows=sheets.filter(function(s){return s.n;});
+    if(!withRows.length){
+      S.impBusy=false;
+      S.impMsg="このファイルからは予定を読み取れませんでした。日付と現場名が入った表になっているかご確認ください。";
+      render(); return;
+    }
+
+    /* 同じ月が重なるシートは、件数の多いものを既定で選ぶ */
+    var use=[], claimed={};
+    withRows.slice().sort(function(a,b){return b.n-a.n;}).forEach(function(s){
+      var ms=Object.keys(s.months);
+      if(ms.some(function(m){return claimed[m];})) return;
+      ms.forEach(function(m){ claimed[m]=1; });
+      use.push(s.name);
+    });
+
+    var all=[];
+    withRows.forEach(function(s){
+      s.rows.forEach(function(r){ all.push(Object.assign({},r,{_sheet:s.name})); });
+    });
+
+    S.imp={fileName:name, sheets:withRows, use:use, all:all, drop:{}, mode:"merge"};
+    S.impBusy=false; S.impMsg=""; S.scrollTop=true; render();
+  }catch(e){
+    S.impBusy=false;
+    S.impMsg="読み取れませんでした（"+(e.message||e)+"）";
+    render();
+  }
+}
+function monthsOfRows(rows){
+  var m={}; rows.forEach(function(r){ m[r.date.slice(0,7)]=(m[r.date.slice(0,7)]||0)+1; }); return m;
+}
+
+/* Firestoreへ書き込む */
+async function impRun(){
+  var I=S.imp; if(!I) return;
+  var rows=impRows(); if(!rows.length) return;
+  S.impBusy=true; S.impMsg="取り込んでいます…"; render();
+  try{
+    var byMonth={};
+    rows.forEach(function(r){ (byMonth[r.date.slice(0,7)]=byMonth[r.date.slice(0,7)]||[]).push(r); });
+
+    for(var ym in byMonth){
+      var list=byMonth[ym];
+      /* いまFirestoreにあるその月の現場 */
+      var snap=await getDocs(collection(db,"months",ym,"jobs"));
+      var exist={};
+      snap.forEach(function(d){
+        var j=d.data();
+        exist[j.date+"|"+String(j.site).replace(/[\s・]/g,"")]={id:d.id, j:j};
+      });
+
+      if(I.mode==="replace"){
+        var b0=writeBatch(db), n0=0;
+        snap.forEach(function(d){
+          b0.delete(doc(db,"months",ym,"jobs",d.id));
+          if(++n0>=400){ b0.commit(); b0=writeBatch(db); n0=0; }
+        });
+        if(n0) await b0.commit();
+        exist={};
+        S.impMsg=ym+" の予定を消しました…"; render();
+      }
+
+      var batch=writeBatch(db), n=0, added=0, updated=0;
+      for(var i=0;i<list.length;i++){
+        var r=list[i];
+        var key=r.date+"|"+r.site.replace(/[\s・]/g,"");
+        var hit=exist[key];
+        if(hit){
+          var patch={};
+          if(r.start && r.start!==hit.j.start) patch.start=r.start;
+          if(r.need && !hit.j.need) patch.need=r.need;
+          if(Object.keys(patch).length){
+            batch.set(doc(db,"months",ym,"jobs",hit.id), patch, {merge:true});
+            updated++; n++;
+          }
+        }else{
+          var id=r.date+"-"+Math.random().toString(36).slice(2,7);
+          batch.set(doc(db,"months",ym,"jobs",id),
+            {date:r.date, site:r.site, start:r.start||"", need:r.need||0,
+             assigned:[], assignedNames:[], note:""});
+          added++; n++;
+        }
+        if(n>=400){ await batch.commit(); batch=writeBatch(db); n=0; }
+      }
+      if(n) await batch.commit();
+      S.impMsg=ym+"：新しく"+added+"件、更新"+updated+"件"; render();
+    }
+
+    S.imp=null; S.impBusy=false; S.impMsg="";
+    var first=Object.keys(byMonth).sort()[0];
+    if(first && first!==S.ym){ S.ym=first; subscribeMonth(S.ym); }
+    S.tab="list"; S.scrollTop=true;
+    flash("取り込みました（"+rows.length+"件）");
+  }catch(e){
+    S.impBusy=false;
+    S.impMsg="取り込みに失敗しました（"+(e.code||e.message||e)+"）";
+    render();
+  }
 }
 
 /* ---------- 施設シート ---------- */
@@ -1331,6 +1608,22 @@ document.addEventListener("click", async function(ev){
       await saveAppConfig({showAnnualToMembers: S.config.showAnnualToMembers===false});
       break;
 
+    /* 取込 */
+    case "imp-pick": {
+      var fi=document.getElementById("impFile");
+      if(fi) fi.click();
+      break;
+    }
+    case "imp-sheet": {
+      var u=S.imp.use, k=u.indexOf(v);
+      if(k>=0) u.splice(k,1); else u.push(v);
+      render(); break;
+    }
+    case "imp-drop": S.imp.drop[Number(v)]=true; render(); break;
+    case "imp-mode": S.imp.mode=v; render(); break;
+    case "imp-cancel": S.imp=null; S.impMsg=""; render(); break;
+    case "imp-run": await impRun(); break;
+
     /* 印刷 */
     case "print": S.printing=true; S.scrollTop=true; render(); break;
     case "print-close": S.printing=false; render(); break;
@@ -1348,6 +1641,10 @@ document.addEventListener("input", function(ev){
   if(f==="loginId"){ S.loginId=val; S.loginErr=""; }
   else if(f==="memberPin"){ S.memberPin=val; S.loginErr=""; }
   else if(f==="newService") S.newService=val;
+  else if(f==="imp-start"||f==="imp-site"){
+    var ii=Number(ev.target.getAttribute("data-i"));
+    if(S.imp && S.imp.all[ii]) S.imp.all[ii][f==="imp-start"?"start":"site"]=val;
+  }
   else if(f==="siteQuery"){ S.siteQuery=val; clearTimeout(window.__q); window.__q=setTimeout(render,260); }
   else if(f==="rename"){
     var rid=ev.target.getAttribute("data-id");
@@ -1365,6 +1662,25 @@ document.addEventListener("change", function(ev){
   if(f==="annMonth"){ S.annMonth=Number(ev.target.value); render(); }
   else if(f==="siteGroup"){ S.siteGroup=ev.target.value; render(); }
 });
+/* ファイルの受け取り */
+document.addEventListener("change", function(ev){
+  if(ev.target && ev.target.id==="impFile" && ev.target.files && ev.target.files[0]) impLoad(ev.target.files[0]);
+});
+["dragenter","dragover"].forEach(function(t){
+  document.addEventListener(t, function(ev){
+    var d=ev.target.closest && ev.target.closest("#drop"); if(!d) return;
+    ev.preventDefault(); d.classList.add("over");
+  });
+});
+document.addEventListener("dragleave", function(ev){
+  var d=ev.target.closest && ev.target.closest("#drop"); if(d) d.classList.remove("over");
+});
+document.addEventListener("drop", function(ev){
+  var d=ev.target.closest && ev.target.closest("#drop"); if(!d) return;
+  ev.preventDefault(); d.classList.remove("over");
+  if(ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]) impLoad(ev.dataTransfer.files[0]);
+});
+
 document.addEventListener("keydown", function(ev){
   if(ev.key==="Enter" && !S.authed && S.loginId && S.memberPin) doLogin(S.loginId, S.memberPin);
 });
