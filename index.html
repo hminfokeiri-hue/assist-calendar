@@ -94,6 +94,29 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .grid{display:grid; grid-template-columns:repeat(7,1fr); gap:3px}
 .cell{position:relative; aspect-ratio:1/1.05; background:var(--card); border:1px solid var(--line);
   border-radius:8px; display:flex; flex-direction:column; align-items:center; padding:4px 2px 5px; transition:transform .1s}
+.calbar{display:flex; justify-content:flex-end; margin-bottom:8px}
+.sw-b{width:4px; height:13px; border-radius:2px; background:var(--short); display:block}
+
+/* 文字入りの升（施設名と開始時間を出す） */
+.grid.rich{gap:2px}
+.grid.rich .cell{aspect-ratio:auto; min-height:84px; align-items:stretch; padding:3px 2px 3px; overflow:hidden}
+.grid.rich .cell.empty{min-height:0}
+.grid.rich .dnum{font-size:11px; text-align:left; padding-left:2px; flex:0 0 auto}
+.grid.rich .cell-x{top:1px; right:3px; font-size:9px}
+.jlist{display:flex; flex-direction:column; gap:1px; margin-top:2px; overflow:hidden; flex:1}
+.jitem{display:block; text-align:left; font-size:8.5px; line-height:1.25; border-left:2px solid var(--ink2);
+  padding:1px 1px 1px 3px; background:#F4F7F6; border-radius:0 3px 3px 0; overflow:hidden}
+.jitem b{display:block; font-weight:800; font-variant-numeric:tabular-nums; font-size:8.5px; color:var(--ink)}
+.jitem s{display:block; text-decoration:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink2)}
+.jitem.short{border-left-color:var(--short); background:#FDF3E9}
+.jitem.short b{color:#8A4508}
+.jitem.me{border-left-color:var(--hi); background:#FFF8E6}
+.jmore{font-size:8px; color:var(--ink2); text-align:left; padding-left:3px; font-weight:700}
+@media (min-width:520px){
+  .grid.rich .cell{min-height:104px}
+  .jitem,.jitem b{font-size:10px}
+  .grid.rich .dnum{font-size:13px}
+}
 .cell:active{transform:scale(.95)}
 .cell.empty{background:transparent; border-color:transparent}
 .cell.today{border-color:var(--ink); border-width:2px}
@@ -500,7 +523,7 @@ var S={
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
   fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
-  imp:null, impBusy:false, impMsg:""
+  imp:null, impBusy:false, impMsg:"", calRich:true
 };
 var _lastTab=null;
 var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
@@ -770,6 +793,8 @@ function viewHome(){
   var me=meId();
   var h=monthBar('<span class="pill okp" data-act="noop">'+countMine()+'件 担当</span>');
   h+='<button class="pdf-btn" data-act="print">予定を確認する（PDF）</button>';
+  h+='<div class="calbar"><button class="pill toggle'+(S.calRich?" on":"")+'" data-act="cal-rich">'+
+     (S.calRich?"現場名を出す":"点だけにする")+'</button></div>';
   h+=calendarGrid();
   h+='<div class="dsect"><h3>出られる日を入れる</h3>'+
      '<p class="hint">右の○✕をおすだけ。上のカレンダーにすぐ反映されます。日付をおすと現場の詳しい内容が見られます。</p>'+
@@ -810,8 +835,13 @@ function calendarGrid(){
   for(var d=1;d<=total;d++) cells.push(S.ym+"-"+pad(d));
   while(cells.length%7!==0) cells.push(null);
 
+  var rich=S.calRich!==false;   /* 施設名を出すかどうか */
+  var LIM=3;
+
   var h='<div class="wd-row">'+WD.map(function(w,i){
-    return '<div class="wd '+(i===0?"sun":i===6?"sat":"")+'">'+w+'</div>'; }).join("")+'</div><div class="grid">';
+    return '<div class="wd '+(i===0?"sun":i===6?"sat":"")+'">'+w+'</div>'; }).join("")+
+    '</div><div class="grid'+(rich?" rich":"")+'">';
+
   h+=cells.map(function(date){
     if(!date) return '<div class="cell empty"></div>';
     var jobs=(S.month.jobs||{})[date]||[], dow=parseYmd(date).getDay();
@@ -820,15 +850,29 @@ function calendarGrid(){
     if(me) jobs=mine;   /* 協力者には自分の現場だけ */
     var isShort=jobs.some(function(j){return (j.assigned||[]).length<(j.need||0);});
     var cls="cell"+(date===today?" today":"")+(st==="ng"?" ngd":st==="ok"?" okd":"")+(mine.length?" mine":"");
-    var dots=jobs.slice(0,4).map(function(j){
-      return '<i class="dot'+((j.assigned||[]).length<(j.need||0)?" short":"")+
-        (me&&(j.assigned||[]).indexOf(me)>=0?" me":"")+'"></i>'; }).join("");
-    if(jobs.length>4) dots+='<i class="more">+</i>';
+
+    var body;
+    if(rich){
+      body='<span class="jlist">'+jobs.slice(0,LIM).map(function(j){
+        var sh=(j.assigned||[]).length<(j.need||0);
+        var isMe=me&&(j.assigned||[]).indexOf(me)>=0;
+        return '<span class="jitem'+(sh?" short":"")+(isMe?" me":"")+'">'+
+          '<b>'+esc(j.start||"時間未定")+'</b><s>'+esc(j.site)+'</s></span>';
+      }).join("")+
+      (jobs.length>LIM?'<span class="jmore">ほか'+(jobs.length-LIM)+'件</span>':'')+'</span>';
+    }else{
+      var dots=jobs.slice(0,4).map(function(j){
+        return '<i class="dot'+((j.assigned||[]).length<(j.need||0)?" short":"")+
+          (me&&(j.assigned||[]).indexOf(me)>=0?" me":"")+'"></i>'; }).join("");
+      if(jobs.length>4) dots+='<i class="more">+</i>';
+      body='<span class="dots">'+dots+'</span>';
+    }
+
     return '<button class="'+cls+'" data-act="day" data-v="'+date+'">'+
       '<span class="dnum '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(date.slice(-2))+'</span>'+
       (st?'<span class="cell-x '+st+'">'+(st==="ng"?"✕":"○")+'</span>':'')+
-      '<span class="dots">'+dots+'</span>'+
-      (isShort&&adm?'<span class="corner"></span>':'')+'</button>';
+      body+
+      (isShort&&adm&&!rich?'<span class="corner"></span>':'')+'</button>';
   }).join("")+'</div>';
   return h;
 }
@@ -849,9 +893,14 @@ function viewList(){
     : (me?'<span class="pill okp">自分の予定</span>':""));
   h+='<button class="pdf-btn" data-act="print">'+(adm?"予定表を作る（PDF）":"予定を確認する（PDF）")+'</button>';
   if(adm){
-    h+=calendarGrid()+
-      '<div class="legend"><span><i class="dot"></i>現場あり</span>'+
-      '<span><i class="dot short"></i>人が足りない</span><span><b class="lx">✕</b>出られない人あり</span></div>'+
+    h+='<div class="calbar"><button class="pill toggle'+(S.calRich?" on":"")+'" data-act="cal-rich">'+
+       (S.calRich?"施設名を出す":"点だけにする")+'</button></div>'+
+      calendarGrid()+
+      '<div class="legend">'+
+      (S.calRich
+        ? '<span><i class="sw-b"></i>人が足りない</span><span>太字が開始時間、その下が施設名</span>'
+        : '<span><i class="dot"></i>現場あり</span><span><i class="dot short"></i>人が足りない</span>')+
+      '<span><b class="lx">✕</b>出られない人あり</span></div>'+
       '<h2 class="secttl mt2">予定リスト</h2>';
   }
   if(!rows.length) h+='<div class="empty-state"><p>この月に表示できる予定はありません。</p>'+
@@ -1482,6 +1531,7 @@ document.addEventListener("click", async function(ev){
     case "logout": await signOut(auth); break;
     case "refresh": render(); break;
     case "tab": S.tab=v; S.fyConfirm=false; render(); break;
+    case "cal-rich": S.calRich=!S.calRich; render(); break;
     case "mon": {
       S.ym=addMonths(S.ym,Number(v));
       subscribeMonth(S.ym);
