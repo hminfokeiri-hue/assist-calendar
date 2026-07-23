@@ -1753,7 +1753,7 @@ function viewEditor(date){
     }).join("")+'</div>'+
     '<div class="editor-actions"><button class="ghost" data-act="job-cancel">やめる</button>'+
       '<button class="danger" data-act="job-delete">けす</button>'+
-      '<button class="primary" data-act="job-save"'+(!q?" disabled":"")+'>保存する</button></div></div>';
+      '<button class="primary" data-act="job-save"'+(String(e.site||"").trim()?"":" disabled")+'>保存する</button></div></div>';
 }
 
 /* ---------- 印刷／PDF ---------- */
@@ -1891,8 +1891,9 @@ document.addEventListener("click", async function(ev){
       if(!S.fyConfirm){ S.fyConfirm=true; render(); break; }
       var nfy=S.fy+1, copy=clone(annualOf(S.fy));
       Object.keys(copy).forEach(function(sid){ copy[sid].forEach(function(p){ p.id=uid(); }); });
+      S.annualByFy[nfy]=copy; S.fy=nfy; S.fyConfirm=false; render();
       await saveAnnual(nfy, copy);
-      S.fy=nfy; S.fyConfirm=false; subscribeAnnual(nfy);
+      subscribeAnnual(nfy);
       flash(fyLabel(nfy)+"に計画をコピーしました"); break;
     }
 
@@ -1918,7 +1919,14 @@ document.addEventListener("click", async function(ev){
     case "avail-cancel": S.availDraft={}; render(); break;
     case "avail-save": {
       var dd2=t.getAttribute("data-d"), keys=Object.keys(S.availDraft);
-      var draft=S.availDraft; S.availDraft={}; render();
+      var draft=S.availDraft; S.availDraft={};
+      S.month.avail=S.month.avail||{};
+      keys.forEach(function(mid){
+        S.month.avail[mid]=S.month.avail[mid]||{};
+        if(draft[mid]===null) delete S.month.avail[mid][dd2];
+        else S.month.avail[mid][dd2]=draft[mid];
+      });
+      render();
       for(var i2=0;i2<keys.length;i2++) await setAvail(keys[i2], dd2, draft[keys[i2]]);
       flash(keys.length+"人の出欠を保存しました"); break;
     }
@@ -1936,11 +1944,22 @@ document.addEventListener("click", async function(ev){
     }
     case "job-save": {
       var job=clone(S.editing); job.site=String(job.site).trim(); if(!job.site) return;
+      job.date=S.openDay;
+      job.assignedNames=(job.assigned||[]).map(function(x){ return memberName(x); });
+      S.month.jobs=S.month.jobs||{};
+      var jl=(S.month.jobs[S.openDay]||[]).slice();
+      var ji=jl.findIndex(function(x){return x.id===job.id;});
+      if(ji>=0) jl[ji]=job; else jl.push(job);
+      jl.sort(function(a,b){ return (a.start||"zz").localeCompare(b.start||"zz"); });
+      S.month.jobs[S.openDay]=jl;
       S.editing=null; render();
       await saveJob(job); flash("保存しました"); break;
     }
     case "job-delete": {
-      var jid=S.editing.id; S.editing=null; render();
+      var jid=S.editing.id, jd=S.openDay;
+      S.month.jobs[jd]=(S.month.jobs[jd]||[]).filter(function(x){return x.id!==jid;});
+      if(!S.month.jobs[jd].length) delete S.month.jobs[jd];
+      S.editing=null; render();
       await removeJob(jid); flash("現場をけしました"); break;
     }
 
@@ -1950,18 +1969,22 @@ document.addEventListener("click", async function(ev){
     case "plan-add": case "plan-add-new": {
       var svc = act==="plan-add" ? v : String(S.newService||"").trim();
       if(!svc) return;
-      if(act==="plan-add-new" && (S.config.services||[]).indexOf(svc)<0)
-        await saveAppConfig({services:(S.config.services||[]).concat([svc])});
+      if(act==="plan-add-new" && (S.config.services||[]).indexOf(svc)<0){
+        S.config.services=(S.config.services||[]).concat([svc]);
+        saveAppConfig({services:S.config.services});
+      }
       var a2=clone(annualOf(S.fy));
       a2[id]=a2[id]||[];
       if(!a2[id].some(function(p){return p.service===svc;})) a2[id].push({id:uid(), service:svc, months:[], note:""});
       S.newService=""; S.addingPlanTo=null;
+      S.annualByFy[S.fy]=a2; render();           /* 先に画面へ */
       await saveAnnual(S.fy, a2); break;
     }
     case "plan-del": {
       var a3=clone(annualOf(S.fy)), sid3=S.openSite;
       a3[sid3]=(a3[sid3]||[]).filter(function(p){return p.id!==id;});
       if(!a3[sid3].length) delete a3[sid3];
+      S.annualByFy[S.fy]=a3; render();
       await saveAnnual(S.fy, a3); break;
     }
     case "plan-month": {
@@ -1973,27 +1996,37 @@ document.addEventListener("click", async function(ev){
         if(k>=0) p.months.splice(k,1); else p.months.push(mm);
         p.months.sort(function(x,y){return x-y;});
       });
+      S.annualByFy[S.fy]=a4; render();
       await saveAnnual(S.fy, a4); break;
     }
     case "svc-add": {
       var nv2=String(S.newService||"").trim(); if(!nv2) return;
       if((S.config.services||[]).indexOf(nv2)>=0){ flash("すでにあります"); return; }
       S.newService="";
-      await saveAppConfig({services:(S.config.services||[]).concat([nv2])}); break;
+      S.config.services=(S.config.services||[]).concat([nv2]); render();
+      await saveAppConfig({services:S.config.services}); break;
     }
     case "svc-del":
-      await saveAppConfig({services:(S.config.services||[]).filter(function(x){return x!==v;})});
+      S.config.services=(S.config.services||[]).filter(function(x){return x!==v;}); render();
+      await saveAppConfig({services:S.config.services});
       flash("種類をけしました。登録ずみの履行内容は残ります"); break;
 
     /* メンバー */
     case "member-toggle": {
       var m2=(S.config.members||[]).find(function(x){return x.id===id;});
-      await saveMember(id, {active: m2 && m2.active===false});
+      var na=!!(m2 && m2.active===false);
+      S.config.members=(S.config.members||[]).map(function(x){
+        return x.id===id?Object.assign({},x,{active:na}):x; });
+      render();
+      await saveMember(id, {active: na});
       break;
     }
-    case "toggle-annual":
-      await saveAppConfig({showAnnualToMembers: S.config.showAnnualToMembers===false});
+    case "toggle-annual": {
+      var nv3=S.config.showAnnualToMembers===false;
+      S.config.showAnnualToMembers=nv3; render();
+      await saveAppConfig({showAnnualToMembers: nv3});
       break;
+    }
 
     /* 取込 */
     case "imp-pick": {
