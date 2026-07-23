@@ -242,7 +242,9 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 /* 配置表（出面表） */
 .gwrap{overflow:auto; -webkit-overflow-scrolling:touch; background:var(--card); border:1px solid var(--line);
   border-radius:12px; max-height:74vh}
-.gtable{border-collapse:separate; border-spacing:0; font-size:11px}
+.gtable{border-collapse:separate; border-spacing:0; font-size:11px;
+  -webkit-user-select:none; -moz-user-select:none; -ms-user-select:none; user-select:none;
+  -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent}
 .gtable th,.gtable td{border-right:1px solid #EDF0F1; border-bottom:1px solid #EDF0F1; background:var(--card)}
 .gtable thead th{position:sticky; top:0; z-index:3; background:#F7F9F8; border-bottom:2px solid var(--line)}
 .gd{position:sticky; left:0; z-index:2; width:36px; min-width:36px; text-align:center; padding:5px 2px}
@@ -260,7 +262,7 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .gs small{font-size:10px; color:var(--ink2); font-variant-numeric:tabular-nums}
 .gs small.short{color:var(--short); font-weight:800}
 .gcell{height:30px; text-align:center; font-size:13px; font-weight:800; color:#DBE0E3}
-.gcell.tap{cursor:pointer; -webkit-user-select:none; user-select:none}
+.gcell.tap{cursor:pointer}
 .gcell.tap:active{background:#E6EBEE}
 .gcell.on:active{background:#D7EBE4}
 .gcell.on{color:var(--ok); background:#EDF6F3}
@@ -1467,11 +1469,11 @@ function viewSiteSheet(){
   h+='</section>';
 
   if(adm){
-    if(S.hist && S.hist.name===s.name){
+    if(S.hist && S.hist.id===s.id){
       h+=viewHistory();
     }else{
       h+='<section class="blk"><div class="blk-hd"><h3>実施の記録</h3>'+
-        '<button class="add" data-act="hist-load" data-v="'+esc(s.name)+'">しらべる</button></div>'+
+        '<button class="add" data-act="hist-load" data-v="'+s.id+'">しらべる</button></div>'+
         '<p class="hint">この施設が、いつ定期清掃の予定に入っていたか（これから入っているか）をしらべます。</p></section>';
     }
     h+='<section class="blk"><h3>この施設で現場を組む</h3>'+
@@ -1542,32 +1544,92 @@ function softSites(){
 
 /* ---------- 施設ごとの実施記録 ---------- */
 /* 月ごとに分かれて保存しているので、前後2年ぶんを見にいく */
-async function loadSiteHistory(siteName){
-  S.hist={name:siteName, loading:true, rows:[]}; render();
+/* 名前を突き合わせるためのならし（全角半角・空白・中黒・カッコを無視） */
+function normName(t){
+  return String(t||"").normalize("NFKC").replace(/[\s・,、()（）]/g,"");
+}
+/* 短いほうの文字が、順番どおり長いほうに現れるか（りんくう別館 ⊂ りんくうタウン別館） */
+function subseq(a, b){
+  var i=0;
+  for(var k=0;k<b.length && i<a.length;k++) if(b[k]===a[i]) i++;
+  return i===a.length;
+}
+
+/* この施設の現場かどうかを、3段階で見わける。
+   1) 名前がぴったり同じ、または履行内容の名前と同じ  … これがあれば、これだけを使う
+   2) 1つも無いときだけ、名前のゆれ（水上警察署／大阪水上警察署）を探す
+   名前が似ているだけの別施設（堺警察署と北堺警察署など）を取りこまないための段階分けです。 */
+function makeMatcher(site, allNames){
+  var target=normName(site.name);
+  var svc={};
+  [S.fy-1, S.fy, S.fy+1].forEach(function(f){
+    (annualOf(f)[site.id]||[]).forEach(function(p){ svc[normName(p.service)]=1; });
+  });
+  /* ほかの契約先の名前。似ているだけのものを弾くために使う */
+  var others=(S.config.sites||[]).filter(function(x){ return x.id!==site.id; })
+    .map(function(x){ return normName(x.name); });
+
+  var exact=function(n){ return n===target || !!svc[n]; };
+
+  /* ぴったり一致するものが1つでもあるか */
+  var hasExact=(allNames||[]).some(function(nm){ return exact(normName(nm)); });
+
+  return function(name){
+    var n=normName(name);
+    if(!n) return false;
+    if(exact(n)) return true;
+    if(hasExact) return false;              /* ぴったりがあるなら、それ以外は拾わない */
+
+    /* ほかの契約先のほうに近いなら、こちらのものではない */
+    for(var i=0;i<others.length;i++){
+      if(n===others[i]) return false;
+      if(others[i].length>=3 && n.indexOf(others[i])>=0 && others[i].length>=target.length) return false;
+    }
+    if(n.length<3 || target.length<3) return false;
+    if(target.indexOf(n)>=0 || n.indexOf(target)>=0) return true;
+    /* りんくう別館 ⊂ りんくうタウン別館 のような、途中が抜けている書き方 */
+    if(n.length>=4 && subseq(n, target) && target.length-n.length<=4) return true;
+    if(target.length>=4 && subseq(target, n) && n.length-target.length<=4) return true;
+    return false;
+  };
+}
+
+async function loadSiteHistory(siteId){
+  var site=siteById(siteId);
+  if(!site){ S.hist=null; render(); return; }
+  S.hist={id:siteId, name:site.name, loading:true, rows:[], done:0, total:0}; render();
   try{
     var base=new Date(), list=[];
-    for(var k=-18; k<=12; k++){
+    for(var k=-12; k<=12; k++){
       var d=new Date(base.getFullYear(), base.getMonth()+k, 1);
       list.push(ymOf(d));
     }
-    var got=[];
-    /* まとめて問い合わせる（6件ずつ） */
-    for(var i=0;i<list.length;i+=6){
-      var chunk=list.slice(i,i+6);
+    S.hist.total=list.length; render();
+
+    /* まず全部あつめる */
+    var all=[];
+    for(var i=0;i<list.length;i+=5){
+      var chunk=list.slice(i,i+5);
       var res=await Promise.all(chunk.map(function(ym){
-        return getDocs(query(collection(db,"months",ym,"jobs"), where("site","==",siteName)))
+        return getDocs(collection(db,"months",ym,"jobs"))
           .then(function(sn){
             var out=[]; sn.forEach(function(dd){ out.push(Object.assign({id:dd.id}, dd.data())); });
             return out;
           })
           .catch(function(){ return []; });
       }));
-      res.forEach(function(a){ got=got.concat(a); });
+      res.forEach(function(a){ all=all.concat(a); });
+      if(S.hist){ S.hist.done=Math.min(i+5, list.length); render(); }
     }
+
+    /* そのうえで、この施設のものを選ぶ */
+    var match=makeMatcher(site, all.map(function(j){ return j.site; }));
+    var names={}, got=[];
+    all.forEach(function(j){ if(match(j.site)){ got.push(j); names[j.site]=1; } });
     got.sort(function(a,b){ return (b.date+(b.start||"")).localeCompare(a.date+(a.start||"")); });
-    S.hist={name:siteName, loading:false, rows:got};
+    S.hist={id:siteId, name:site.name, loading:false, rows:got, names:Object.keys(names)};
   }catch(e){
-    S.hist={name:siteName, loading:false, rows:[], err:(e.code||e.message||String(e))};
+    S.hist={id:siteId, name:site.name, loading:false, rows:[], err:(e.code||e.message||String(e))};
   }
   render();
 }
@@ -1581,12 +1643,15 @@ function viewHistory(){
   var h='<section class="blk"><div class="blk-hd"><h3>実施の記録</h3>'+
     '<button class="add" data-act="hist-close">とじる</button></div>';
 
-  if(H.loading) return h+'<p class="hint">しらべています…</p></section>';
+  if(H.loading) return h+'<p class="hint">しらべています…　'+
+    (H.total?Math.round(H.done/H.total*100)+'%':'')+
+    (H.rows.length?'（'+H.rows.length+'件みつかりました）':'')+'</p></section>';
   if(H.err)     return h+'<p class="warnline">よみこめませんでした（'+esc(H.err)+'）</p></section>';
   if(!H.rows.length)
-    return h+'<p class="hint">この2年半のあいだに、この施設の予定は登録されていません。</p></section>';
+    return h+'<p class="hint">この2年のあいだに、この施設の予定は登録されていません。</p></section>';
 
-  h+='<p class="hint">直近18か月前から1年先までをしらべました。日付をおすとその日をひらけます。</p>';
+  h+='<p class="hint">1年前から1年先までをしらべました（全'+H.rows.length+'件）。日付をおすとその日をひらけます。'+
+     ((H.names&&H.names.length>1)?'<br>この施設として拾った名前：'+esc(H.names.join("、")):'')+'</p>';
 
   function block(title, rows, cls){
     if(!rows.length) return "";
@@ -1838,6 +1903,11 @@ document.addEventListener("click", async function(ev){
 
     /* 配置表の升：おすたびに ○ → ✕ → 空白 */
     case "cell": {
+      try{
+        if(ev.preventDefault) ev.preventDefault();
+        var sel0=window.getSelection && window.getSelection();
+        if(sel0 && sel0.removeAllRanges) sel0.removeAllRanges();
+      }catch(e0){}
       var cd=t.getAttribute("data-d"), cm=t.getAttribute("data-m"), cj=t.getAttribute("data-j");
       var job=null;
       if(cj){
@@ -2087,6 +2157,23 @@ document.addEventListener("change", function(ev){
   if(f==="annMonth"){ S.annMonth=Number(ev.target.value); render(); }
   else if(f==="siteGroup"){ S.siteGroup=ev.target.value; render(); }
 });
+/* 配置表の升を連打しても、文字が選ばれないようにする */
+document.addEventListener("selectstart", function(ev){
+  if(ev.target && ev.target.closest && ev.target.closest(".gtable")) ev.preventDefault();
+});
+document.addEventListener("mousedown", function(ev){
+  if(ev.target && ev.target.closest && ev.target.closest(".gcell.tap")) ev.preventDefault();
+});
+document.addEventListener("dblclick", function(ev){
+  if(ev.target && ev.target.closest && ev.target.closest(".gtable")){
+    ev.preventDefault();
+    try{
+      var sel=window.getSelection && window.getSelection();
+      if(sel && sel.removeAllRanges) sel.removeAllRanges();
+    }catch(e){}
+  }
+});
+
 /* ファイルの受け取り */
 document.addEventListener("change", function(ev){
   if(ev.target && ev.target.id==="impFile" && ev.target.files && ev.target.files[0]) impLoad(ev.target.files[0]);
