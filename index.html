@@ -741,15 +741,54 @@ async function saveMember(id, patch){
 /* ============================================================
    描画
    ============================================================ */
+/* 日本語を変換しているあいだは画面を描き直さない（変換が確定してしまうため） */
+var composing=false, renderWaiting=false;
+document.addEventListener("compositionstart", function(){ composing=true; });
+document.addEventListener("compositionend", function(){
+  composing=false;
+  if(renderWaiting){ renderWaiting=false; render(); }
+});
+
+/* いま入力している欄をおぼえておく目印 */
+function fieldKey(el){
+  if(!el || !el.getAttribute) return null;
+  var f=el.getAttribute("data-field");
+  if(!f) return null;
+  return [f, el.getAttribute("data-id")||"", el.getAttribute("data-i")||""];
+}
+function findField(k){
+  var sel='[data-field="'+k[0]+'"]';
+  if(k[1]) sel+='[data-id="'+k[1]+'"]';
+  if(k[2]) sel+='[data-i="'+k[2]+'"]';
+  return document.querySelector(sel);
+}
+
 function render(){
   var el=document.getElementById("app");
   if(S.booting){ el.innerHTML='<div class="boot"><div class="stamp-mark"></div><p>読み込み中…</p></div>'; return; }
-  if(!S.authed && S.session===null && false){}
+  if(composing){ renderWaiting=true; return; }   /* 変換中はあとまわし */
+
   var y = window.scrollY || (document.documentElement&&document.documentElement.scrollTop) || 0;
   var toTop = S.scrollTop || S.tab!==_lastTab;
   _lastTab=S.tab; S.scrollTop=false;
+
+  /* 入力中だった欄と、カーソルの位置をおぼえる */
+  var ae=document.activeElement, key=fieldKey(ae), selS=null, selE=null;
+  if(key){ try{ selS=ae.selectionStart; selE=ae.selectionEnd; }catch(e){} }
+
   el.innerHTML = (S.authed && S.session) ? viewApp() : viewLogin();
   if(window.scrollTo) window.scrollTo(0, toTop?0:y);
+
+  /* おぼえた欄に戻して、カーソルも元の位置へ */
+  if(key){
+    var back=findField(key);
+    if(back){
+      try{
+        back.focus({preventScroll:true});
+        if(selS!=null && back.setSelectionRange) back.setSelectionRange(selS, selE);
+      }catch(e){}
+    }
+  }
 }
 
 function viewLogin(){
@@ -1378,6 +1417,15 @@ function viewSiteSheet(){
 }
 
 
+/* 入力の途中で描き直すときは、変換が終わるのを待つ */
+function softRender(slot){
+  clearTimeout(window[slot]);
+  window[slot]=setTimeout(function tick(){
+    if(composing){ window[slot]=setTimeout(tick, 400); return; }
+    render();
+  }, 450);
+}
+
 /* ---------- 施設をさがす（予定タブの上） ---------- */
 function siteFinder(){
   var q=String(S.findQ||"").trim();
@@ -1841,17 +1889,21 @@ document.addEventListener("input", function(ev){
     var ii=Number(ev.target.getAttribute("data-i"));
     if(S.imp && S.imp.all[ii]) S.imp.all[ii][f==="imp-start"?"start":"site"]=val;
   }
-  else if(f==="siteQuery"){ S.siteQuery=val; clearTimeout(window.__q); window.__q=setTimeout(render,260); }
-  else if(f==="findQ"){ S.findQ=val; clearTimeout(window.__f); window.__f=setTimeout(render,260); }
+  else if(f==="siteQuery"){ S.siteQuery=val; softRender("__q"); }
+  else if(f==="findQ"){ S.findQ=val; softRender("__f"); }
   else if(f==="rename"){
     var rid=ev.target.getAttribute("data-id");
     S.config.members=(S.config.members||[]).map(function(m){ return m.id===rid?Object.assign({},m,{name:val}):m; });
     clearTimeout(window.__rn);
-    window.__rn=setTimeout(function(){ saveMember(rid,{name:val}); },700);
+    var save=function(){
+      if(composing){ window.__rn=setTimeout(save,500); return; }
+      saveMember(rid,{name:val});
+    };
+    window.__rn=setTimeout(save,900);
   }
   else if(S.editing && (f==="site"||f==="start"||f==="note")){
     S.editing[f]=val;
-    if(f==="site"){ clearTimeout(window.__s); window.__s=setTimeout(render,300); }
+    if(f==="site") softRender("__s");
   }
 });
 document.addEventListener("change", function(ev){
