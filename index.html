@@ -1055,7 +1055,7 @@ function calendarGrid(){
       body='<span class="jlist">'+jobs.slice(0,LIM).map(function(j){
         var sh=(j.assigned||[]).length<(j.need||0);
         var isMe=me&&(j.assigned||[]).indexOf(me)>=0;
-        return '<span class="jitem'+(sh?" short":"")+(isMe?" me":"")+'">'+
+        return '<span class="jitem'+(sh?" short":"")+(isMe?" me":"")+toneCls(j.site)+'">'+
           '<b>'+esc(j.start||"時間未定")+'</b><s>'+esc(j.site)+'</s></span>';
       }).join("")+
       (jobs.length>LIM?'<span class="jmore">ほか'+(jobs.length-LIM)+'件</span>':'')+'</span>';
@@ -1097,7 +1097,8 @@ function viewList(){
       (S.calRich
         ? '<span><i class="sw-b"></i>人が足りない</span><span>太字が開始時間、その下が施設名</span>'
         : '<span><i class="dot"></i>現場あり</span><span><i class="dot short"></i>人が足りない</span>')+
-      '<span><b class="lx">✕</b>出られない人あり</span></div>'+
+      '<span><b class="lx">✕</b>出られない人あり</span>'+
+      '<span class="lg-t">■ 鳥取県</span><span class="lg-s">■ さわ病院</span></div>'+
       '<h2 class="secttl mt2">予定リスト</h2>';
   }
   if(!rows.length) h+='<div class="empty-state"><p>この月に表示できる予定はありません。</p>'+
@@ -1112,7 +1113,7 @@ function viewList(){
       '<span class="chev">›</span></button>'+
       r.jobs.map(function(j){
         return '<div class="ljob"><div class="ljob-top"><span class="jtime">'+esc(j.start||"時間未定")+'</span>'+
-          '<span class="jsite">'+esc(j.site)+'</span><span class="jcount'+
+          '<span class="jsite'+toneCls(j.site)+'">'+esc(j.site)+'</span><span class="jcount'+
           ((j.assigned||[]).length<(j.need||0)?" short":"")+'">'+(j.assigned||[]).length+'/'+(j.need||0)+'人</span></div>'+
           (me?'':'<div class="chips">'+(j.assigned||[]).map(function(id){
             return '<span class="chip">'+esc(memberName(id)||"?")+'</span>'; }).join("")+'</div>')+'</div>';
@@ -1193,7 +1194,7 @@ function gridRows(rows, ms, today){
     }
     var short=(j.assigned||[]).length<(j.need||0);
     return '<tr class="'+cls+'">'+left+
-      '<td class="gs" data-act="day" data-v="'+r.date+'"><b>'+esc(j.site)+'</b><small class="'+(short?"short":"")+'">'+
+      '<td class="gs" data-act="day" data-v="'+r.date+'"><b class="'+(siteTone(j.site)?"t-"+siteTone(j.site):"")+'">'+esc(j.site)+'</b><small class="'+(short?"short":"")+'">'+
         esc(j.start||"時間未定")+'　'+(j.assigned||[]).length+'/'+(j.need||0)+'人</small></td>'+
       ms.map(function(m){
         var on=(j.assigned||[]).indexOf(m.id)>=0;      /* この現場に配置 */
@@ -1675,6 +1676,43 @@ function softSites(){
 function normName(t){
   return String(t||"").normalize("NFKC").replace(/[\s・,、()（）]/g,"");
 }
+/* ============================================================
+   現場名の色分け
+   鳥取県の施設は青、さわ病院は緑（病棟名で登録されているぶんも拾う）
+   ============================================================ */
+var TONE_CACHE=null, TONE_KEY="";
+function buildTone(){
+  var key=(S.config.sites||[]).length+"|"+S.fy+"|"+
+    Object.keys(annualOf(S.fy)).length+"|"+Object.keys(annualOf(S.fy-1)).length;
+  if(TONE_CACHE && TONE_KEY===key) return TONE_CACHE;
+
+  var map={};
+  (S.config.sites||[]).forEach(function(x){
+    var t = x.group==="鳥取" ? "tottori" : (x.name==="さわ病院" ? "sawa" : "");
+    if(t) map[normName(x.name)]=t;
+  });
+  /* さわ病院は病棟ごとの名前で現場が登録されているので、履行内容の名前も緑にする */
+  (S.config.sites||[]).forEach(function(x){
+    if(x.name!=="さわ病院") return;
+    [S.fy-1, S.fy, S.fy+1].forEach(function(f){
+      (annualOf(f)[x.id]||[]).forEach(function(p){
+        var n=normName(p.service);
+        if(n && !map[n]) map[n]="sawa";
+      });
+    });
+  });
+  TONE_CACHE=map; TONE_KEY=key;
+  return map;
+}
+function siteTone(name){
+  var m=buildTone();
+  return m[normName(name)] || "";
+}
+function toneCls(name){
+  var t=siteTone(name);
+  return t ? " t-"+t : "";
+}
+
 /* 短いほうの文字が、順番どおり長いほうに現れるか（りんくう別館 ⊂ りんくうタウン別館） */
 function subseq(a, b){
   var i=0;
@@ -1962,7 +2000,7 @@ function memberSheet(){
         '<span class="dnum '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(date.slice(-2))+'</span>'+
         (st?'<span class="cell-x '+st+'">'+(st==="ng"?"×":"○")+'</span>':'')+
         '<span class="jlist">'+jobs.slice(0,3).map(function(j){
-          return '<span class="jitem me"><b>'+esc(j.start||"時間未定")+'</b><s>'+esc(j.site)+'</s></span>';
+          return '<span class="jitem me'+toneCls(j.site)+'"><b>'+esc(j.start||"時間未定")+'</b><s>'+esc(j.site)+'</s></span>';
         }).join("")+(jobs.length>3?'<span class="jmore">ほか'+(jobs.length-3)+'件</span>':'')+'</span>'+
         '</button>';
     }).join("")+'</div>';
@@ -1973,7 +2011,7 @@ function memberSheet(){
       Number(r.date.slice(-2))+'<small>'+WD[dow]+'</small></span><span class="mr-j">'+
       r.jobs.map(function(j){
         var w=(j.assigned||[]).filter(function(x){return x!==id;}).map(function(x){return memberName(x,j);}).join("・");
-        return '<b>'+esc(j.start||"時間未定")+'　'+esc(j.site)+'</b>'+(w?'<s>いっしょに：'+esc(w)+'</s>':'');
+        return '<b class="'+(siteTone(j.site)?"t-"+siteTone(j.site):"")+'">'+esc(j.start||"時間未定")+'　'+esc(j.site)+'</b>'+(w?'<s>いっしょに：'+esc(w)+'</s>':'');
       }).join("")+'</span></div>';
   }).join("");
 
@@ -2022,7 +2060,7 @@ function viewDay(date,jobs,me,adm){
     h+='<section class="blk"><h3>自分の現場</h3>'+(mine.length?mine.map(function(j){
       var w=(j.assigned||[]).filter(function(id){return id!==me;}).map(function(id){return memberName(id,j);}).join("、")||"—";
       return '<div class="mycard"><div class="mytime">'+esc(j.start||"時間未定")+'</div>'+
-        '<div class="mysite">'+esc(j.site)+'</div><div class="mywith">いっしょに：'+esc(w)+'</div>'+
+        '<div class="mysite'+toneCls(j.site)+'">'+esc(j.site)+'</div><div class="mywith">いっしょに：'+esc(w)+'</div>'+
         (j.note?'<div class="mynote">'+esc(j.note)+'</div>':'')+'</div>';
     }).join(""):'<p class="hint">この日の割り当てはまだありません。</p>')+'</section>';
   }
@@ -2034,7 +2072,7 @@ function viewDay(date,jobs,me,adm){
     var short=(j.assigned||[]).length<(j.need||0);
     var conf=(j.assigned||[]).filter(function(id){ return (((S.month.avail||{})[id]||{})[date])==="ng"; });
     return '<div class="jcard"><div class="jcard-top"><span class="jtime">'+esc(j.start||"時間未定")+'</span>'+
-      '<span class="jsite">'+esc(j.site)+'</span><span class="jcount'+(short?" short":"")+'">'+
+      '<span class="jsite'+toneCls(j.site)+'">'+esc(j.site)+'</span><span class="jcount'+(short?" short":"")+'">'+
       (j.assigned||[]).length+'/'+(j.need||0)+'人</span></div><div class="chips">'+
       ((j.assigned||[]).length?(j.assigned||[]).map(function(id){
         var bad=(((S.month.avail||{})[id]||{})[date])==="ng";
@@ -2139,7 +2177,7 @@ function printSheet(forMember){
       return '<div class="pcell"><div class="pd '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(date.slice(-2))+
         (st==="ng"?' ×':'')+'</div>'+jobs.map(function(j){
           var names=(j.assigned||[]).map(function(id){return memberName(id,j);}).join("・");
-          return '<div class="pj'+(forMember?" mine":"")+'"><b>'+esc(j.start||"時間未定")+'</b> '+esc(j.site)+
+          return '<div class="pj'+(forMember?" mine":"")+toneCls(j.site)+'"><b>'+esc(j.start||"時間未定")+'</b> '+esc(j.site)+
             (showAll?'<br>'+esc(names):'')+'</div>';
         }).join("")+'</div>';
     }).join("")+'</div>';
