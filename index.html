@@ -148,6 +148,29 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .hd2 s.none{color:#8A4508}
 
+.cfil{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.cfil::-webkit-scrollbar{display:none}
+.cf{flex:0 0 auto;padding:9px 13px;border:2px solid var(--line);border-radius:99px;background:var(--card);
+  font-size:12.5px;font-weight:700;color:var(--ink2);white-space:nowrap;display:flex;align-items:center;gap:6px}
+.cf b{font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.cf.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.cf.on b{color:var(--hi)}
+.cf.soon b{color:var(--short)}
+.cf.soon.on b{color:var(--hi)}
+.soonbar{background:#FDEEE0;border:1px solid #F3CFA6;color:#8A4508;border-radius:11px;
+  padding:12px 14px;font-size:13px;margin-bottom:12px;line-height:1.7}
+.soonbar b{font-size:15px}
+.cbadge{flex:0 0 auto;font-size:11px;font-weight:800;padding:5px 10px;border-radius:99px;white-space:nowrap}
+.cbadge.active{background:#E3F1EC;color:var(--ok)}
+.cbadge.soon{background:#FDEEE0;color:#8A4508}
+.cbadge.ended{background:#EDF1F0;color:var(--ink2)}
+.cbadge.future{background:#EAF2FA;color:#2B6CB0}
+.scard.endcard{opacity:.62}
+.period{font-size:15px;font-weight:700;margin:10px 0 0;font-variant-numeric:tabular-nums}
+.mini{font-style:normal;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;vertical-align:1px}
+.mini.ended{background:#EDF1F0;color:var(--ink2)}
+.mini.soon{background:#FDEEE0;color:#8A4508}
+
 .se-edit{width:100%; padding:13px; border-radius:11px; font-size:13.5px; font-weight:700;
   background:var(--card); border:1px solid var(--line); color:var(--ink); margin-bottom:12px}
 .se-edit:active{border-color:var(--ok)}
@@ -714,7 +737,7 @@ var S={
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
   fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
-  imp:null, impBusy:false, impMsg:"", calRich:true, hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false
+  imp:null, impBusy:false, impMsg:"", calRich:true, hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false, cFilter:"active"
 };
 var _lastTab=null;
 var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
@@ -1321,19 +1344,23 @@ function gridRefresh(){
 /* ---------- 年間予定 ---------- */
 function viewAnnual(){
   var adm=isAdmin(), curM=Number(S.ym.split("-")[1]), inFy=(fyOfYm(S.ym)===S.fy);
-  var sites=(S.config.sites||[]).filter(function(s){
-    if(S.siteGroup!=="all" && s.group!==S.siteGroup) return false;
-    if(S.siteQuery && (s.name+s.area).indexOf(S.siteQuery)<0) return false;
-    var ms=monthsOf(s.id);
-    if(S.annMonth && !ms[S.annMonth]) return false;
-    if(!S.annMonth && !Object.keys(ms).length && !adm) return false;
-    return true;
-  });
-  var all=(S.config.sites||[]).length;
-  var planned=(S.config.sites||[]).filter(function(s){ return Object.keys(monthsOf(s.id)).length; }).length;
-  var thisMonth=inFy?(S.config.sites||[]).filter(function(s){ return monthsOf(s.id)[curM]; }).length:0;
+  var live=(S.config.sites||[]).filter(passContract);
+  var all=live.length;
+  var planned=live.filter(function(s){ return Object.keys(monthsOf(s.id)).length; }).length;
+  var thisMonth=inFy?live.filter(function(s){ return monthsOf(s.id)[curM]; }).length:0;
 
+  var c=contractCounts();
   var h='<h2 class="secttl">年間の履行スケジュール</h2>'+fyBar()+
+    '<div class="cfil">'+
+      '<button class="cf'+(S.cFilter==="active"?" on":"")+'" data-act="cfil" data-v="active">'+
+        '契約中<b>'+(c.active+c.soon+c.future)+'</b></button>'+
+      '<button class="cf soon'+(S.cFilter==="soon"?" on":"")+'" data-act="cfil" data-v="soon">'+
+        'まもなく終了<b>'+c.soon+'</b></button>'+
+      '<button class="cf'+(S.cFilter==="ended"?" on":"")+'" data-act="cfil" data-v="ended">'+
+        '終了<b>'+c.ended+'</b></button>'+
+      '<button class="cf'+(S.cFilter==="all"?" on":"")+'" data-act="cfil" data-v="all">'+
+        'すべて<b>'+(S.config.sites||[]).length+'</b></button>'+
+    '</div>'+
     '<p class="asum">計画ずみ '+planned+'／'+all+'施設'+
     (inFy?'　・　'+curM+'月に予定のある施設 '+thisMonth+'件':'')+(adm?'':'　（閲覧のみ）')+'</p>'+
     '<div class="filters">'+
@@ -1351,6 +1378,7 @@ function viewAnnual(){
 function annualResults(){
   var adm=isAdmin(), curM=Number(S.ym.split("-")[1]), inFy=(fyOfYm(S.ym)===S.fy);
   var sites=(S.config.sites||[]).filter(function(s){
+    if(!passContract(s)) return false;
     if(S.siteGroup!=="all" && s.group!==S.siteGroup) return false;
     if(S.siteQuery && (s.name+s.area).indexOf(S.siteQuery)<0) return false;
     var ms=monthsOf(s.id);
@@ -1365,7 +1393,9 @@ function annualResults(){
      FY_MONTHS.map(function(m){return '<th>'+m+'</th>';}).join("")+'</tr></thead><tbody>';
   h+=sites.map(function(s){
     var ms=monthsOf(s.id), n=plansOf(s.id).length;
-    return '<tr data-act="site" data-id="'+s.id+'"><td class="sname"><b>'+esc(s.name)+'</b>'+
+    var cl=contractState(s);
+    return '<tr data-act="site" data-id="'+s.id+'"><td class="sname"><b>'+esc(s.name)+
+      (cl==="ended"?' <i class="mini ended">終了</i>':cl==="soon"?' <i class="mini soon">更新</i>':'')+'</b>'+
       '<small>'+esc(s.area)+(n?'　'+n+'項目':'　未設定')+'</small></td>'+
       FY_MONTHS.map(function(m){
         return '<td class="mcell'+(ms[m]?" on":"")+((inFy&&m===curM)?" cur":"")+'">'+(ms[m]?"●":"")+'</td>'; }).join("")+'</tr>';
@@ -1378,26 +1408,52 @@ function annualResults(){
 /* ---------- 契約先 ---------- */
 function sitesResults(){
   var sites=(S.config.sites||[]).filter(function(s){
+    if(!passContract(s)) return false;
     if(S.siteGroup!=="all" && s.group!==S.siteGroup) return false;
     if(S.siteQuery && (s.name+s.area).indexOf(S.siteQuery)<0) return false;
     return true;
   });
-  if(!sites.length) return '<div class="empty-state"><p>あてはまる施設がありません。</p></div>';
+  if(!sites.length) return '<div class="empty-state"><p>あてはまる契約先がありません。</p>'+
+    (S.cFilter==="active"?'<p class="sub">「終了」や「すべて」に切り替えると出てくるかもしれません。</p>':'')+'</div>';
   var groups={};
   sites.forEach(function(s){ (groups[s.group]=groups[s.group]||[]).push(s); });
   return Object.keys(GROUPS).filter(function(g){return groups[g];}).map(function(g){
     return '<div class="sgroup"><h3>'+GROUPS[g]+'（'+groups[g].length+'）</h3>'+groups[g].map(function(s){
-      var n=plansOf(s.id).length;
-      return '<button class="scard" data-act="site" data-id="'+s.id+'"><span class="scard-m">'+
-        '<b>'+esc(s.name)+'</b><small>'+esc(s.area)+'</small></span>'+
+      var n=plansOf(s.id).length, L=contractLabel(s);
+      return '<button class="scard'+(L.cls==="ended"?" endcard":"")+'" data-act="site" data-id="'+s.id+'">'+
+        '<span class="scard-m"><b>'+esc(s.name)+'</b>'+
+        '<small>'+esc(s.area)+(L.note?'　'+esc(L.note):'')+'</small></span>'+
+        '<span class="cbadge '+L.cls+'">'+esc(L.text)+'</span>'+
         '<span class="cnt'+(n?"":" zero")+'">'+(n?n+"項目":"未設定")+'</span></button>';
     }).join("")+'</div>';
   }).join("");
 }
 
+/* 契約の状態ごとの件数 */
+function contractCounts(){
+  var c={active:0, soon:0, ended:0, future:0};
+  (S.config.sites||[]).forEach(function(s){ c[contractState(s)]++; });
+  return c;
+}
+
 function viewSites(){
-  var h='<h2 class="secttl">契約先（'+(S.config.sites||[]).length+'施設）</h2>'+fyBar()+
-    '<p class="asum">施設をおすと、履行内容（ワックス・窓ガラス・高所など）と実施する月を登録できます。</p>'+
+  var c=contractCounts(), all=(S.config.sites||[]).length;
+  var h='<h2 class="secttl">契約先（'+all+'施設）</h2>'+fyBar()+
+    '<p class="asum">施設をおすと、契約期間と履行内容（ワックス・窓ガラス・高所など）を登録できます。</p>'+
+    '<div class="cfil">'+
+      '<button class="cf'+(S.cFilter==="active"?" on":"")+'" data-act="cfil" data-v="active">'+
+        '契約中<b>'+(c.active+c.soon+c.future)+'</b></button>'+
+      '<button class="cf soon'+(S.cFilter==="soon"?" on":"")+'" data-act="cfil" data-v="soon">'+
+        'まもなく終了<b>'+c.soon+'</b></button>'+
+      '<button class="cf'+(S.cFilter==="ended"?" on":"")+'" data-act="cfil" data-v="ended">'+
+        '終了<b>'+c.ended+'</b></button>'+
+      '<button class="cf'+(S.cFilter==="all"?" on":"")+'" data-act="cfil" data-v="all">'+
+        'すべて<b>'+all+'</b></button>'+
+    '</div>'+
+    (c.soon && S.cFilter!=="soon"
+      ? '<div class="soonbar" data-act="cfil" data-v="soon">'+
+        '<b>'+c.soon+'件</b>の契約が'+SOON_DAYS+'日以内に終わります。更新のご確認を。</div>'
+      : '')+
     '<div class="filters">'+
       '<select data-field="siteGroup"><option value="all"'+(S.siteGroup==="all"?" selected":"")+'>すべて</option>'+
         Object.keys(GROUPS).map(function(g){
@@ -1649,6 +1705,54 @@ async function impRun(){
 }
 
 
+/* ---------- 契約期間 ----------
+   end が空なら「契約中」。end が今日より前なら「終了」。
+   終了が近いものは、更新の目安としてお知らせする。 */
+var SOON_DAYS = 90;
+
+function dayDiff(a, b){
+  return Math.round((parseYmd(a) - parseYmd(b)) / 86400000);
+}
+function contractState(site){
+  var t=ymd(new Date());
+  if(site.end && site.end < t) return "ended";
+  if(site.start && site.start > t) return "future";
+  if(site.end){
+    var d=dayDiff(site.end, t);
+    if(d<=SOON_DAYS) return "soon";
+  }
+  return "active";
+}
+function contractLabel(site){
+  var st=contractState(site), t=ymd(new Date());
+  if(st==="ended") return {cls:"ended", text:"終了", note:jpDate(site.end)+" まで"};
+  if(st==="future") return {cls:"future", text:"開始前", note:jpDate(site.start)+" から"};
+  if(st==="soon"){
+    var d=dayDiff(site.end, t);
+    return {cls:"soon", text:(d<=0?"今日まで":"あと"+d+"日"), note:jpDate(site.end)+" まで"};
+  }
+  if(site.end) return {cls:"active", text:"契約中", note:jpDate(site.end)+" まで"};
+  return {cls:"active", text:"契約中", note:site.start?jpDate(site.start)+" から":""};
+}
+function jpDate(d){
+  if(!d) return "";
+  var p=String(d).split("-");
+  if(p.length<3) return d;
+  return Number(p[0])+"年"+Number(p[1])+"月"+Number(p[2])+"日";
+}
+function periodText(site){
+  if(!site.start && !site.end) return "期間の登録なし";
+  return (site.start?jpDate(site.start):"（開始日なし）")+" 〜 "+(site.end?jpDate(site.end):"（終了日なし）");
+}
+/* 一覧に出すかどうか */
+function passContract(site){
+  var st=contractState(site);
+  if(S.cFilter==="ended")  return st==="ended";
+  if(S.cFilter==="soon")   return st==="soon";
+  if(S.cFilter==="all")    return true;
+  return st!=="ended";     /* 既定は「契約中」＝終了したもの以外 */
+}
+
 /* ---------- 契約先の追加・修正・削除 ---------- */
 async function saveSites(list){
   try{
@@ -1682,10 +1786,16 @@ async function saveSiteEdit(){
 
   S.seBusy=true; S.seErr=""; render();
   var list=(S.config.sites||[]).slice();
+  var rec={group:grp, name:name, area:area};
+  if(e.start) rec.start=e.start;
+  if(e.end)   rec.end=e.end;
+  if(e.start && e.end && e.end < e.start){
+    S.seErr="終了日が開始日より前になっています"; S.seBusy=false; render(); return;
+  }
   if(e.id){
-    list=list.map(function(x){ return x.id===e.id ? {id:x.id, group:grp, name:name, area:area} : x; });
+    list=list.map(function(x){ return x.id===e.id ? Object.assign({id:x.id}, rec) : x; });
   }else{
-    list.push({id:newSiteId(), group:grp, name:name, area:area});
+    list.push(Object.assign({id:newSiteId()}, rec));
   }
   var ok=await saveSites(list);
   S.seBusy=false;
@@ -1727,6 +1837,14 @@ function siteEditor(){
       '<input value="'+esc(e.name||"")+'" data-field="seName" placeholder="例：福島警察署"></label>'+
     '<label class="f"><span>所在地</span>'+
       '<input value="'+esc(e.area||"")+'" data-field="seArea" placeholder="例：大阪市福島区"></label>'+
+    '<div class="f-row">'+
+      '<label class="f"><span>契約の開始日</span>'+
+        '<input type="date" value="'+esc(e.start||"")+'" data-field="seStart"></label>'+
+      '<label class="f"><span>契約の終了日</span>'+
+        '<input type="date" value="'+esc(e.end||"")+'" data-field="seEnd"></label>'+
+    '</div>'+
+    '<p class="hint">終了日は、決まっていなければ空のままで構いません。'+
+      '入れておくと、'+SOON_DAYS+'日前から「更新が近い」とお知らせします。</p>'+
     '<p class="f"><span style="font-size:12px;font-weight:700;color:var(--ink2)">契約先の区分</span></p>'+
     '<div class="grp-pick">'+Object.keys(GROUPS).map(function(g){
       return '<button class="grp'+(e.group===g?" on":"")+'" data-act="se-group" data-v="'+g+'">'+
@@ -1761,7 +1879,17 @@ function viewSiteSheet(){
     '<button class="close" data-act="close">✕</button></div><div class="sheet-body" data-keep-scroll="sheet">';
 
   if(adm && S.siteEdit && S.siteEdit.id===s.id) return h+siteEditor()+'</div></div></div>';
-  if(adm) h+='<button class="se-edit" data-act="se-edit" data-id="'+s.id+'">この契約先の名前や区分をなおす</button>';
+  var CL=contractLabel(s);
+  h+='<section class="blk"><div class="blk-hd"><h3>契約期間</h3>'+
+     '<span class="cbadge '+CL.cls+'">'+esc(CL.text)+'</span></div>'+
+     '<p class="period">'+esc(periodText(s))+'</p>'+
+     (CL.cls==="ended"
+       ? '<p class="hint">この契約は終了しています。記録として残していますが、'+
+         '一覧では「終了」に切り替えたときだけ出てきます。</p>'
+       : CL.cls==="soon"
+       ? '<p class="warnline">更新の時期が近づいています。</p>' : '')+
+     '</section>';
+  if(adm) h+='<button class="se-edit" data-act="se-edit" data-id="'+s.id+'">契約期間や名前をなおす</button>';
 
   h+='<section class="blk"><div class="blk-hd"><h3>履行内容と実施月</h3>'+
     (adm?'<button class="add" data-act="plan-add-open" data-id="'+s.id+'">＋ 追加</button>':'')+'</div>';
@@ -1826,7 +1954,11 @@ function siteFinder(){
 function findResults(){
   var q=String(S.findQ||"").trim();
   if(!q) return "";
-  var hits=(S.config.sites||[]).filter(function(x){ return (x.name+x.area).indexOf(q)>=0; }).slice(0,8);
+  var hits=(S.config.sites||[]).filter(function(x){
+    return (x.name+x.area).indexOf(q)>=0 && contractState(x)!=="ended"; }).slice(0,8);
+  if(!hits.length){
+    hits=(S.config.sites||[]).filter(function(x){ return (x.name+x.area).indexOf(q)>=0; }).slice(0,8);
+  }
   if(!hits.length) return '<p class="hint">「'+esc(q)+'」に当てはまる契約先はありませんでした。</p>';
 
   var curM=Number(S.ym.split("-")[1]);
@@ -2414,7 +2546,8 @@ function siteSuggest(date){
     }).join("")+'</div>';
   }
   if(q) return "";
-  var due=(S.config.sites||[]).filter(function(s){ return monthsOf(s.id,dfy)[curM]; }).slice(0,8);
+  var due=(S.config.sites||[]).filter(function(s){
+    return monthsOf(s.id,dfy)[curM] && contractState(s)!=="ended"; }).slice(0,8);
   if(!due.length) return "";
   return '<p class="hint">'+curM+'月に履行予定の施設：</p><div class="sug">'+due.map(function(s){
     return '<button data-act="pick-site" data-v="'+esc(s.name)+'">'+esc(s.name)+'<small>'+
@@ -2650,15 +2783,17 @@ document.addEventListener("click", async function(ev){
 
     /* 契約先の追加・修正・削除 */
     case "se-new":
-      S.siteEdit={id:null, name:"", group:(S.siteGroup!=="all"?S.siteGroup:"府"), area:""};
+      S.siteEdit={id:null, name:"", group:(S.siteGroup!=="all"?S.siteGroup:"府"), area:"", start:"", end:""};
       S.seErr=""; S.seConfirm=false; render(); break;
     case "se-edit": {
       var se=siteById(id);
-      if(se){ S.siteEdit={id:se.id, name:se.name, group:se.group, area:se.area};
+      if(se){ S.siteEdit={id:se.id, name:se.name, group:se.group, area:se.area,
+                          start:se.start||"", end:se.end||""};
         S.seErr=""; S.seConfirm=false; render(); }
       break;
     }
     case "se-group": if(S.siteEdit){ S.siteEdit.group=v; S.seErr=""; render(); } break;
+    case "cfil": S.cFilter=v; render(); break;
     case "se-cancel": S.siteEdit=null; S.seErr=""; S.seConfirm=false; render(); break;
     case "se-save": await saveSiteEdit(); break;
     case "se-del": S.seConfirm=true; render(); break;
@@ -2967,6 +3102,9 @@ document.addEventListener("input", function(ev){
   else if(f==="seName"||f==="seArea"){
     if(S.siteEdit){ S.siteEdit[f==="seName"?"name":"area"]=val; S.seErr=""; }
   }
+  else if(f==="seStart"||f==="seEnd"){
+    if(S.siteEdit){ S.siteEdit[f==="seStart"?"start":"end"]=val; S.seErr=""; }
+  }
   else if(f==="imp-start"||f==="imp-site"){
     var ii=Number(ev.target.getAttribute("data-i"));
     if(S.imp && S.imp.all[ii]) S.imp.all[ii][f==="imp-start"?"start":"site"]=val;
@@ -2992,6 +3130,10 @@ document.addEventListener("change", function(ev){
   var f=ev.target.getAttribute&&ev.target.getAttribute("data-field"); if(!f) return;
   /* えらんだメニューそのものは作り直さず、結果のところだけ書きかえる。
      作り直すと、iPhoneのドラム式メニューで選んだ内容が戻ってしまうため。 */
+  if(f==="seStart"||f==="seEnd"){
+    if(S.siteEdit){ S.siteEdit[f==="seStart"?"start":"end"]=ev.target.value; S.seErr=""; render(); }
+    return;
+  }
   if(f==="annMonth"){
     S.annMonth=Number(ev.target.value);
     if(!patch("annRes", annualResults())) render();
