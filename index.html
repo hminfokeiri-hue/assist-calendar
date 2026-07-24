@@ -231,7 +231,7 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 /* 文字入りの升（施設名と開始時間を出す）
    画面のはしまで使い、施設名は2行まで折り返す */
 .grid.rich{gap:3px; margin:0 -8px}
-.grid.rich .cell{aspect-ratio:auto; min-height:128px; align-items:stretch;
+.grid.rich .cell{aspect-ratio:auto; min-height:140px; align-items:stretch;
   padding:4px 3px 4px; overflow:hidden; border-radius:7px}
 .grid.rich .cell.empty{min-height:0}
 .grid.rich .dnum{font-size:12.5px; text-align:left; padding-left:2px; flex:0 0 auto; line-height:1.15}
@@ -256,15 +256,21 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 @media (min-width:560px){
   .jitem.lng s,.jitem.xlng s{font-size:12px; -webkit-line-clamp:3; line-clamp:3}
 }
+.jitem u{display:block; text-decoration:none; font-size:8.2px; line-height:1.2; color:#8A6B12;
+  margin-top:1px; overflow-wrap:anywhere; word-break:break-word;
+  display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.jitem u.alone{color:#A9B2B8}
 .jmore{font-size:9px; color:var(--ink2); text-align:left; padding-left:4px; font-weight:700; margin-top:1px}
 .wd-row{margin:0 -8px 3px}
 
 @media (min-width:400px){
-  .grid.rich .cell{min-height:138px}
+  .jitem u{font-size:9px}
+  .grid.rich .cell{min-height:150px}
   .jitem b,.jitem s{font-size:10.5px}
   .grid.rich .dnum{font-size:14px}
 }
 @media (min-width:560px){
+  .jitem u{font-size:11px; -webkit-line-clamp:2; line-clamp:2}
   .grid.rich{margin:0}
   .wd-row{margin:0 0 3px}
   .grid.rich .cell{min-height:150px; padding:6px 5px}
@@ -737,7 +743,7 @@ var S={
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
   fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
-  imp:null, impBusy:false, impMsg:"", calRich:true, hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false, cFilter:"active"
+  imp:null, impBusy:false, impMsg:"", calRich:true, showMates:true, printNames:true, hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false, cFilter:"active"
 };
 var _lastTab=null;
 var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
@@ -1102,7 +1108,10 @@ function viewHome(){
   var me=meId();
   var h=monthBar('<span class="pill okp" data-act="noop">'+countMine()+'件 担当</span>');
   h+='<button class="pdf-btn" data-act="print">予定を確認する（PDF）</button>';
-  h+='<div class="calbar"><button class="pill toggle'+(S.calRich?" on":"")+'" data-act="cal-rich">'+
+  h+='<div class="calbar">'+
+     (S.calRich?'<button class="pill toggle'+(S.showMates!==false?" on":"")+'" data-act="mates">'+
+       (S.showMates!==false?"いっしょの人を出す":"自分だけ表示")+'</button>':'')+
+     '<button class="pill toggle'+(S.calRich?" on":"")+'" data-act="cal-rich">'+
      (S.calRich?"現場名を出す":"点だけにする")+'</button></div>';
   h+=calendarGrid();
   h+='<div class="dsect"><h3>出られる日を入れる</h3>'+
@@ -1167,8 +1176,15 @@ function calendarGrid(){
       body='<span class="jlist">'+jobs.slice(0,LIM).map(function(j){
         var sh=(j.assigned||[]).length<(j.need||0);
         var isMe=me&&(j.assigned||[]).indexOf(me)>=0;
+        var mates="";
+        if(isMe && S.showMates!==false){
+          var w=(j.assigned||[]).filter(function(x){return x!==me;})
+                 .map(function(x){return memberName(x,j);}).filter(Boolean);
+          if(w.length) mates='<u>'+esc(w.join("・"))+'</u>';
+          else mates='<u class="alone">ひとり</u>';
+        }
         return '<span class="jitem'+(sh?" short":"")+(isMe?" me":"")+toneCls(j.site)+lenCls(j.site)+'">'+
-          '<b>'+esc(j.start||"時間未定")+'</b><s>'+esc(j.site)+'</s></span>';
+          '<b>'+esc(j.start||"時間未定")+'</b><s>'+esc(j.site)+'</s>'+mates+'</span>';
       }).join("")+
       (jobs.length>LIM?'<span class="jmore">ほか'+(jobs.length-LIM)+'件</span>':'')+'</span>';
     }else{
@@ -2430,7 +2446,11 @@ function memberSheet(){
         '<span class="dnum '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(date.slice(-2))+'</span>'+
         (st?'<span class="cell-x '+st+'">'+(st==="ng"?"×":"○")+'</span>':'')+
         '<span class="jlist">'+jobs.slice(0,3).map(function(j){
-          return '<span class="jitem me'+toneCls(j.site)+lenCls(j.site)+'"><b>'+esc(j.start||"時間未定")+'</b><s>'+esc(j.site)+'</s></span>';
+          var w=(j.assigned||[]).filter(function(x){return x!==id;})
+                 .map(function(x){return memberName(x,j);}).filter(Boolean);
+          var mates = S.showMates!==false ? (w.length?'<u>'+esc(w.join("・"))+'</u>':'<u class="alone">ひとり</u>') : "";
+          return '<span class="jitem me'+toneCls(j.site)+lenCls(j.site)+'"><b>'+esc(j.start||"時間未定")+
+            '</b><s>'+esc(j.site)+'</s>'+mates+'</span>';
         }).join("")+(jobs.length>3?'<span class="jmore">ほか'+(jobs.length-3)+'件</span>':'')+'</span>'+
         '</button>';
     }).join("")+'</div>';
@@ -2453,6 +2473,8 @@ function memberSheet(){
       '<div class="mbar2"><button class="mnav" data-act="mmon" data-v="-1">‹</button>'+
         '<b>'+p[1]+'月</b>'+
         '<button class="mnav" data-act="mmon" data-v="1">›</button>'+
+        '<button class="pill toggle'+(S.showMates!==false?" on":"")+'" data-act="mates">'+
+          (S.showMates!==false?"いっしょの人":"自分だけ")+'</button>'+
         '<button class="pill toggle on" data-act="mprint" data-v="'+id+'">この人のPDF</button></div>'+
       grid+
       (mine.length
@@ -2607,9 +2629,16 @@ function printSheet(forMember){
       var st=forMember?((S.month.avail||{})[forMember]||{})[date]:null;
       return '<div class="pcell"><div class="pd '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(date.slice(-2))+
         (st==="ng"?' ×':'')+'</div>'+jobs.map(function(j){
-          var names=(j.assigned||[]).map(function(id){return memberName(id,j);}).join("・");
+          var line="";
+          if(showAll){
+            line=(j.assigned||[]).map(function(x){return memberName(x,j);}).join("・");
+          }else if(S.printNames!==false){
+            var w=(j.assigned||[]).filter(function(x){return x!==forMember;})
+                   .map(function(x){return memberName(x,j);}).filter(Boolean);
+            line = w.length ? w.join("・") : "ひとり";
+          }
           return '<div class="pj'+(forMember?" mine":"")+toneCls(j.site)+'"><b>'+esc(j.start||"時間未定")+'</b> '+esc(j.site)+
-            (showAll?'<br>'+esc(names):'')+'</div>';
+            (line?'<br>'+esc(line):'')+'</div>';
         }).join("")+'</div>';
     }).join("")+'</div>';
 
@@ -2617,7 +2646,8 @@ function printSheet(forMember){
     '<p class="ph">'+esc(who)+'　／　アシストカレンダー'+
       (forMember?'　（'+count+'件）':'')+'</p>'+grid+
     '<div class="legend"><i class="t">■</i> 鳥取県　<i class="s">■</i> さわ病院'+
-      (forMember?'　<i class="m">■</i> 自分の担当':'')+'</div>'+
+      (forMember?'　<i class="m">■</i> 自分の担当'+
+        (S.printNames!==false?'　／　名前は、いっしょに入る方':''):'')+'</div>'+
     '<p class="pfoot">出力：'+now.getFullYear()+'/'+pad(now.getMonth()+1)+'/'+pad(now.getDate())+
       ' '+pad(now.getHours())+':'+pad(now.getMinutes())+'　株式会社ホームメンテナンス</p></div>';
 }
@@ -2727,7 +2757,19 @@ function viewPrint(){
           esc(m.name)+'</button>';
       }).join("");
     picker='<div class="pv-pick"><div class="pchips">'+chips+'</div>'+
+      (sel && sel!=="each"
+        ? '<div class="pchips"><button class="pchip'+(S.printNames!==false?" on":"")+'" data-act="pnames">'+
+          (S.printNames!==false?"いっしょの人の名前を出す":"自分のぶんだけ")+'</button></div>'
+        : (sel==="each"
+          ? '<div class="pchips"><button class="pchip'+(S.printNames!==false?" on":"")+'" data-act="pnames">'+
+            (S.printNames!==false?"いっしょの人の名前を出す":"自分のぶんだけ")+'</button></div>'
+          : ''))+
       '<p class="pv-hint">だれのぶんを出しますか。横にスライドすると全員えらべます。</p></div>';
+  }else{
+    picker='<div class="pv-pick"><div class="pchips">'+
+      '<button class="pchip'+(S.printNames!==false?" on":"")+'" data-act="pnames">'+
+      (S.printNames!==false?"いっしょの人の名前を出す":"自分のぶんだけ")+'</button></div>'+
+      '<p class="pv-hint">いっしょに入る方のお名前を、予定表に入れるかどうかを選べます。</p></div>';
   }
 
   var note = (adm && sel==="each")
@@ -2758,6 +2800,8 @@ document.addEventListener("click", async function(ev){
     case "refresh": render(); break;
     case "tab": S.tab=v; S.fyConfirm=false; render(); break;
     case "cal-rich": S.calRich=!S.calRich; render(); break;
+    case "mates": S.showMates=(S.showMates===false); render(); break;
+    case "pnames": S.printNames=(S.printNames===false); S.scrollTop=true; render(); break;
     case "find-clear": S.findQ=""; render(); break;
     case "mpick": S.mpick=!S.mpick; S.pickYear=Number(S.ym.split("-")[0]); render(); break;
     case "pick-y": S.pickYear=(S.pickYear||Number(S.ym.split("-")[0]))+Number(v); render(); break;
