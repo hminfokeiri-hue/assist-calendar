@@ -47,6 +47,8 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
   border:2px solid var(--line); border-radius:12px; background:var(--card)}
 .err{color:var(--ng); font-size:13px; margin:0}
 .link{color:var(--ink2); text-decoration:underline; font-size:14px; padding:8px}
+.remember-row{display:flex; align-items:center; gap:10px; font-size:14px; color:var(--ink2); cursor:pointer; user-select:none; padding:2px 2px}
+.remember-row input{width:20px; height:20px; flex:0 0 auto}
 .foot-note{margin-top:28px; font-size:11px; color:var(--ink2); line-height:1.7; text-align:center}
 
 /* ヘッダー */
@@ -742,7 +744,7 @@ var S={
   openDay:null, openSite:null, tab:"home", syncedAt:null, toast:null,
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
-  fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
+  fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", remember:true, autoTried:false, availDraft:{}, err:null,
   imp:null, impBusy:false, impMsg:"", calRich:true, showMates:true, printNames:true, hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false, cFilter:"active"
 };
 var _lastTab=null;
@@ -772,10 +774,22 @@ function canSeeAnnual(){ return isAdmin() || S.config.showAnnualToMembers!==fals
 var ADMIN_ID="0001";
 function idToEmail(loginId){ return String(loginId).trim().toLowerCase()+"@"+ID_DOMAIN; }
 
+/* ---------- ログイン情報の保存（この端末だけ） ----------
+   協力者が毎回IDと暗証番号を打たなくてよいよう、端末の中に控えます。
+   Firebase自体もログイン状態を保つので、これは念のための控えです。
+   「はいる」を押した端末にだけ残り、「ぬける（ログアウト）」で消えます。 */
+var CREDS_KEY="assist-cal-login";
+function loadCreds(){ try{ var s=localStorage.getItem(CREDS_KEY); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function saveCreds(id,pin){ try{ localStorage.setItem(CREDS_KEY, JSON.stringify({id:String(id),pin:String(pin)})); }catch(e){} }
+function clearCreds(){ try{ localStorage.removeItem(CREDS_KEY); }catch(e){} }
+/* 前回の控えがあれば、ID欄・暗証番号欄にあらかじめ入れておく */
+(function(){ var c=loadCreds(); if(c){ S.loginId=c.id||""; S.memberPin=c.pin||""; S.remember=true; } })();
+
 async function doLogin(loginId, password){
   S.loginBusy=true; S.loginErr=""; render();
   try{
     await signInWithEmailAndPassword(auth, idToEmail(loginId), password);
+    if(S.remember){ saveCreds(loginId, password); } else { clearCreds(); }
   }catch(e){
     S.loginErr = (e && e.code==="auth/too-many-requests")
       ? "試行が多すぎます。しばらく待ってからお試しください"
@@ -788,9 +802,21 @@ onAuthStateChanged(auth, async function(user){
   if(S.addingMember) return;   /* メンバー追加のあいだは、いったん切り替わるだけなので無視する */
   unsubAll();
   if(!user){
-    S.session=null; S.authed=false; S.booting=false; S.loginBusy=false;
+    S.session=null; S.authed=false; S.loginBusy=false;
     S.config={members:[],sites:[],services:[],showAnnualToMembers:true};
     S.annualByFy={}; S.month=emptyMonth(); NAMES={};
+    var sc=loadCreds();
+    if(sc && sc.id && sc.pin && !S.autoTried){
+      /* この端末に控えがあれば、自動でログインを試す（1回だけ） */
+      S.autoTried=true; S.loginId=sc.id; S.memberPin=sc.pin;
+      signInWithEmailAndPassword(auth, idToEmail(sc.id), sc.pin).catch(function(){
+        clearCreds(); S.memberPin=""; S.booting=false;
+        S.loginErr="暗証番号が変わった可能性があります。もう一度お入れください";
+        render();
+      });
+      return;   /* 成功すればこの関数がもう一度呼ばれる。失敗すれば上で案内する */
+    }
+    S.booting=false;
     render(); return;
   }
   try{
@@ -1014,6 +1040,7 @@ function viewLogin(){
       '<input class="pin" inputmode="numeric" autocomplete="username" maxlength="12" placeholder="････" value="'+esc(S.loginId)+'" data-field="loginId">'+
       '<p class="lead">暗証番号</p>'+
       '<input class="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="20" placeholder="••••••" value="'+esc(S.memberPin)+'" data-field="memberPin">'+
+      '<label class="remember-row"><input type="checkbox" data-act="toggleRemember"'+(S.remember?" checked":"")+'><span>次回からIDと暗証番号を省く（この端末に保存）</span></label>'+
       (S.loginErr?'<p class="err">'+esc(S.loginErr)+'</p>':'')+
       '<button class="big-btn primary" data-act="login"'+(S.loginBusy?" disabled":"")+'>'+
         '<span class="big-btn-t">'+(S.loginBusy?"確認中…":"はいる")+'</span></button>'+
@@ -2796,7 +2823,8 @@ document.addEventListener("click", async function(ev){
   switch(act){
     case "noop": break;
     case "login": await doLogin(S.loginId, S.memberPin); break;
-    case "logout": await signOut(auth); break;
+    case "logout": clearCreds(); S.autoTried=true; S.loginId=""; S.memberPin=""; await signOut(auth); break;
+    case "toggleRemember": S.remember=!!t.checked; if(!S.remember) clearCreds(); render(); break;
     case "refresh": render(); break;
     case "tab": S.tab=v; S.fyConfirm=false; render(); break;
     case "cal-rich": S.calRich=!S.calRich; render(); break;
