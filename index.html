@@ -47,8 +47,6 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
   border:2px solid var(--line); border-radius:12px; background:var(--card)}
 .err{color:var(--ng); font-size:13px; margin:0}
 .link{color:var(--ink2); text-decoration:underline; font-size:14px; padding:8px}
-.remember-row{display:flex; align-items:center; gap:10px; font-size:14px; color:var(--ink2); cursor:pointer; user-select:none; padding:2px 2px}
-.remember-row input{width:20px; height:20px; flex:0 0 auto}
 .foot-note{margin-top:28px; font-size:11px; color:var(--ink2); line-height:1.7; text-align:center}
 
 /* ヘッダー */
@@ -620,26 +618,71 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .pv-bar button.go{background:var(--hi); color:#3D2A00}
 .pv-note{color:#F0F3F5; font-size:11px; padding:0 14px 10px; line-height:1.6; background:var(--ink)}
 .pv-pick{padding:10px 0 2px; background:var(--ink)}
-.pchips{display:flex; gap:7px; overflow-x:auto; padding:0 12px 8px; -webkit-overflow-scrolling:touch}
+.pchips{display:flex; gap:7px; overflow-x:auto; padding:0 12px 8px; -webkit-overflow-scrolling:touch; align-items:center}
 .pchips::-webkit-scrollbar{display:none}
+.pv-tag{flex:0 0 auto; font-size:11px; font-weight:800; color:#8E9AAA; padding-right:2px}
+.pv-lbl .pchip{padding:9px 13px}
 .pchip{flex:0 0 auto; padding:10px 15px; border-radius:99px; font-size:13px; font-weight:700;
   background:rgba(255,255,255,.13); color:#DCE3EA; white-space:nowrap}
 .pchip.on{background:var(--hi); color:#3D2A00; font-weight:800}
 .pv-hint{margin:0; padding:0 14px 8px; font-size:10.5px; color:#8E9AAA; line-height:1.6}
-.sheetp{background:#fff; margin:14px; padding:16px; border-radius:6px; box-shadow:0 4px 18px rgba(0,0,0,.2)}
+.sheetp{background:#fff; margin:14px; padding:14px 16px; border-radius:6px; box-shadow:0 4px 18px rgba(0,0,0,.2)}
 .pbreak{height:0}
-.sheetp h1{font-size:18px; text-align:center}
-.sheetp .ph{text-align:center; font-size:11px; color:#555; margin:5px 0 14px}
-.pgrid{display:grid; grid-template-columns:repeat(7,1fr); border-top:1px solid #333; border-left:1px solid #333}
-.pwd{text-align:center; font-size:10px; font-weight:800; padding:3px 0; border-right:1px solid #333; border-bottom:1px solid #333; background:#EEE}
-.pwd.sun{color:#B3352C} .pwd.sat{color:#2B6CB0}
-.pcell{min-height:96px; border-right:1px solid #333; border-bottom:1px solid #333; padding:2px 3px; overflow:hidden}
-.pcell .pd{font-size:11px; font-weight:800; font-variant-numeric:tabular-nums}
+
+/* カレンダー型のヘッダー（大阪府警の予定表に合わせる） */
+.phead{display:flex; align-items:flex-end; justify-content:space-between; gap:10px;
+  border-bottom:2.5px solid #141E2C; padding-bottom:6px; margin-bottom:10px}
+.phead-l{flex:0 0 auto; line-height:1}
+.ph-en{font-size:26px; font-weight:800; letter-spacing:.02em; color:#C7CDD2}
+.ph-reiwa{font-size:11px; font-weight:700; color:#555; margin-top:3px}
+.phead-c{flex:1; text-align:center; line-height:1.05}
+.ph-yr{font-size:11px; font-weight:700; color:#555}
+.ph-mon{font-size:28px; font-weight:800; color:#141E2C}
+.ph-mon b{font-size:38px}
+.ph-sub{font-size:12px; font-weight:800; letter-spacing:.16em; color:#141E2C; margin-top:2px}
+.phead-r{flex:0 0 auto; text-align:right}
+.ph-who{font-size:12px; font-weight:800; color:#141E2C}
+.ph-note{font-size:9px; color:#777; margin-top:4px}
+
+.pgrid{display:grid; grid-template-columns:repeat(7,1fr); border-top:1.5px solid #333; border-left:1.5px solid #333}
+.pwd{text-align:center; font-size:11px; font-weight:800; padding:4px 0; border-right:1.5px solid #333; border-bottom:1.5px solid #333; background:#F3ECD9; color:#3A3120}
+.pwd.sun{color:#B3352C; background:#F6E4E0} .pwd.sat{color:#2B6CB0; background:#E6EEF6}
+.pcell{min-height:88px; border-right:1px solid #999; border-bottom:1px solid #999; padding:2px 3px; overflow:hidden}
+.pcell.sat{background:#F5F8FC} .pcell.sun{background:#FCF4F3}
+.pcell .pd{font-size:12px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.1}
 .pcell .pd.sun{color:#B3352C} .pcell .pd.sat{color:#2B6CB0}
-.pj{font-size:9px; line-height:1.35; margin-top:2px; border-left:2px solid #444; padding-left:3px}
-.pj b{font-weight:800}
+.pd-x{font-size:9px; font-weight:800; color:#fff; background:#B3352C; border-radius:3px; padding:0 3px; margin-left:3px}
+.pj{font-size:9.5px; line-height:1.3; margin-top:2px; padding-left:4px; border-left:2.5px solid #B7BEC5}
+.pj-s{font-weight:700; color:#222}
+.pj-t{font-weight:800; color:#333; margin-left:3px; font-variant-numeric:tabular-nums}
+.pj-n{display:block; color:#666; font-size:8.5px}
 .pj.mine{border-left-color:#C08A00; background:#FFF8E4}
-.pfoot{margin-top:12px; font-size:9px; color:#666; text-align:right}
+.pbottom{display:flex; align-items:center; justify-content:space-between; margin-top:8px; gap:12px; flex-wrap:wrap}
+.legend{display:flex; gap:12px; font-size:9px; color:#666; flex-wrap:wrap}
+.legend i{font-style:normal; font-weight:800}
+.legend i.t{color:#2B6CB0} .legend i.s{color:#0E7C63} .legend i.m{color:#C08A00}
+.pfoot{font-size:9px; color:#666; text-align:right}
+
+/* 縦型リスト（ティエムメンテナンス日程表に合わせる） */
+.lsheet{max-width:720px; margin-left:auto; margin-right:auto}
+.ls-head{background:#0E9AD6; color:#fff; font-weight:800; text-align:center; padding:7px 10px;
+  border:1.2px solid #0A6E9B; border-bottom:none; display:flex; align-items:baseline; justify-content:center; gap:8px; flex-wrap:wrap}
+.ls-head .ls-m{font-size:20px} .ls-head .ls-who{font-size:15px}
+.ls-head .ls-yr{font-size:11px; font-weight:700; opacity:.92; margin-left:6px}
+.ltable{width:100%; border-collapse:collapse; table-layout:fixed}
+.ltable col.c-d{width:60px} .ltable col.c-w{width:34px} .ltable col.c-c{width:auto}
+.ltable th{background:#EEF1F0; border:1.2px solid #333; font-size:11px; font-weight:800; padding:4px 6px; color:#333}
+.ltable td{border:1px solid #666; font-size:12px; padding:3px 7px; height:24px; vertical-align:middle}
+.ltable td.ld{text-align:center; font-weight:700; font-variant-numeric:tabular-nums}
+.ltable td.lw{text-align:center; font-weight:700}
+.ltable td.lw.sun,.ltable tr.sun td.ld{color:#B3352C} .ltable td.lw.sat,.ltable tr.sat td.ld{color:#2B6CB0}
+.ltable tr.sun{background:#FCF4F3} .ltable tr.sat{background:#F5F8FC}
+.ltable tr.off td{background:#F1F3F2; color:#999}
+.lc-j{margin-right:12px; white-space:nowrap}
+.lc-j.t-tottori{color:#2B6CB0; font-weight:700} .lc-j.t-sawa{color:#0E7C63; font-weight:700}
+.lc-x{color:#999}
+.ls-remark{border:1px solid #666; border-top:none; min-height:44px; padding:4px 8px; font-size:11px; color:#333}
+.lsheet .pfoot{margin-top:8px}
 
 @media print{
   @page{size:A4 landscape; margin:8mm}
@@ -650,6 +693,7 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
   .sheetp{margin:0; padding:0; box-shadow:none; border-radius:0; break-inside:avoid}
   .pbreak{break-after:page; page-break-after:always; height:0}
   .pcell{min-height:96px}
+  .ltable tr{break-inside:avoid}
 }
 @media (prefers-reduced-motion:reduce){ *{animation:none !important; transition:none !important} }
 
@@ -679,9 +723,8 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .lg-s{color:#0E7C63; font-weight:700}
 
 /* 印刷前の確認画面（用紙のプレビュー） */
-.pj.t-tottori{border-left-color:#2B6CB0 !important; color:#2B6CB0; background:#F1F6FB}
-.pj.t-sawa{border-left-color:#0E7C63 !important; color:#0E7C63; background:#F1F8F6}
-.pj.t-tottori b,.pj.t-sawa b{color:#333}
+.pj.t-tottori{border-left-color:#2B6CB0 !important; background:#EEF4FA} .pj.t-tottori .pj-s{color:#2B6CB0}
+.pj.t-sawa{border-left-color:#0E7C63 !important; background:#EDF6F2} .pj.t-sawa .pj-s{color:#0E7C63}
 .mpin.ro{display:inline-block; line-height:26px; background:#F2F5F4; color:var(--ink2); border-color:transparent}
 .notebox{background:#FFFBF0; border:1px solid #F0DFB4; border-radius:12px; padding:13px 14px; margin-top:14px}
 .notebox b{font-size:13px}
@@ -744,8 +787,8 @@ var S={
   openDay:null, openSite:null, tab:"home", syncedAt:null, toast:null,
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
-  fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", remember:true, autoTried:false, availDraft:{}, err:null,
-  imp:null, impBusy:false, impMsg:"", calRich:true, showMates:true, printNames:true, hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false, cFilter:"active"
+  fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
+  imp:null, impBusy:false, impMsg:"", calRich:true, showMates:true, printNames:true, printLayout:"grid", hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false, cFilter:"active"
 };
 var _lastTab=null;
 var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
@@ -774,22 +817,10 @@ function canSeeAnnual(){ return isAdmin() || S.config.showAnnualToMembers!==fals
 var ADMIN_ID="0001";
 function idToEmail(loginId){ return String(loginId).trim().toLowerCase()+"@"+ID_DOMAIN; }
 
-/* ---------- ログイン情報の保存（この端末だけ） ----------
-   協力者が毎回IDと暗証番号を打たなくてよいよう、端末の中に控えます。
-   Firebase自体もログイン状態を保つので、これは念のための控えです。
-   「はいる」を押した端末にだけ残り、「ぬける（ログアウト）」で消えます。 */
-var CREDS_KEY="assist-cal-login";
-function loadCreds(){ try{ var s=localStorage.getItem(CREDS_KEY); return s?JSON.parse(s):null; }catch(e){ return null; } }
-function saveCreds(id,pin){ try{ localStorage.setItem(CREDS_KEY, JSON.stringify({id:String(id),pin:String(pin)})); }catch(e){} }
-function clearCreds(){ try{ localStorage.removeItem(CREDS_KEY); }catch(e){} }
-/* 前回の控えがあれば、ID欄・暗証番号欄にあらかじめ入れておく */
-(function(){ var c=loadCreds(); if(c){ S.loginId=c.id||""; S.memberPin=c.pin||""; S.remember=true; } })();
-
 async function doLogin(loginId, password){
   S.loginBusy=true; S.loginErr=""; render();
   try{
     await signInWithEmailAndPassword(auth, idToEmail(loginId), password);
-    if(S.remember){ saveCreds(loginId, password); } else { clearCreds(); }
   }catch(e){
     S.loginErr = (e && e.code==="auth/too-many-requests")
       ? "試行が多すぎます。しばらく待ってからお試しください"
@@ -802,21 +833,9 @@ onAuthStateChanged(auth, async function(user){
   if(S.addingMember) return;   /* メンバー追加のあいだは、いったん切り替わるだけなので無視する */
   unsubAll();
   if(!user){
-    S.session=null; S.authed=false; S.loginBusy=false;
+    S.session=null; S.authed=false; S.booting=false; S.loginBusy=false;
     S.config={members:[],sites:[],services:[],showAnnualToMembers:true};
     S.annualByFy={}; S.month=emptyMonth(); NAMES={};
-    var sc=loadCreds();
-    if(sc && sc.id && sc.pin && !S.autoTried){
-      /* この端末に控えがあれば、自動でログインを試す（1回だけ） */
-      S.autoTried=true; S.loginId=sc.id; S.memberPin=sc.pin;
-      signInWithEmailAndPassword(auth, idToEmail(sc.id), sc.pin).catch(function(){
-        clearCreds(); S.memberPin=""; S.booting=false;
-        S.loginErr="暗証番号が変わった可能性があります。もう一度お入れください";
-        render();
-      });
-      return;   /* 成功すればこの関数がもう一度呼ばれる。失敗すれば上で案内する */
-    }
-    S.booting=false;
     render(); return;
   }
   try{
@@ -1040,7 +1059,6 @@ function viewLogin(){
       '<input class="pin" inputmode="numeric" autocomplete="username" maxlength="12" placeholder="････" value="'+esc(S.loginId)+'" data-field="loginId">'+
       '<p class="lead">暗証番号</p>'+
       '<input class="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="20" placeholder="••••••" value="'+esc(S.memberPin)+'" data-field="memberPin">'+
-      '<label class="remember-row"><input type="checkbox" data-act="toggleRemember"'+(S.remember?" checked":"")+'><span>次回からIDと暗証番号を省く（この端末に保存）</span></label>'+
       (S.loginErr?'<p class="err">'+esc(S.loginErr)+'</p>':'')+
       '<button class="big-btn primary" data-act="login"'+(S.loginBusy?" disabled":"")+'>'+
         '<span class="big-btn-t">'+(S.loginBusy?"確認中…":"はいる")+'</span></button>'+
@@ -2633,53 +2651,133 @@ function viewEditor(date){
 
 /* ---------- 印刷／PDF ---------- */
 /* 予定表を1枚ぶん組み立てる。forMember に協力者のIDを渡すと、その人のぶんだけになる */
+/* 英語の月名（大阪府警の予定表に合わせて大きく表示する） */
+var EN_MONTHS=["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE",
+  "JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
+/* 令和の年（西暦2019年＝令和元年） */
+function reiwa(y){ return y-2018; }
+
+/* この人（または全員）の、その日のお仕事を取り出す共通処理 */
+function jobsForPrint(date, forMember){
+  var jobs=(S.month.jobs||{})[date]||[];
+  if(forMember) jobs=jobs.filter(function(j){return (j.assigned||[]).indexOf(forMember)>=0;});
+  return jobs;
+}
+/* いっしょに入る人の名前（自分をのぞく）。全員ぶんのときは全員の名前。 */
+function mateNames(j, forMember){
+  var ids=(j.assigned||[]);
+  if(forMember) ids=ids.filter(function(x){return x!==forMember;});
+  return ids.map(function(x){return memberName(x,j);}).filter(Boolean);
+}
+
+/* 印刷の1枚：えらんだ形（カレンダー型／縦型リスト）で切り替える */
 function printSheet(forMember){
+  return S.printLayout==="list" ? printSheetList(forMember) : printSheetGrid(forMember);
+}
+
+/* ============ カレンダー型（大阪府警 定期清掃予定表に合わせたデザイン） ============ */
+function printSheetGrid(forMember){
   var p=S.ym.split("-").map(Number);
-  var lead=new Date(p[0],p[1]-1,1).getDay(), total=daysInMonth(S.ym);
+  var year=p[0], mon=p[1];
+  /* 月曜はじまり（大阪府警の予定表に合わせる）。getDay:0=日 → 月=0 になるよう並べ替え */
+  var WDP=["月","火","水","木","金","土","日"];
+  var first=new Date(year,mon-1,1).getDay();       // 0=日
+  var lead=(first+6)%7;                             // 月曜を先頭にしたときの空きマス数
+  var total=daysInMonth(S.ym);
   var cells=[]; for(var i=0;i<lead;i++) cells.push(null);
   for(var d=1;d<=total;d++) cells.push(S.ym+"-"+pad(d));
   while(cells.length%7!==0) cells.push(null);
 
-  var showAll = !forMember;
-  var who = forMember ? (memberName(forMember)+" さん") : "全員ぶん";
+  var withNames = (S.printNames!==false);          // 人も記入するか
+  var who = forMember ? (memberName(forMember)+" 様") : "全員ぶん";
   var now=new Date();
   var count=0;
 
-  var grid='<div class="pgrid">'+WD.map(function(w,i){
-    return '<div class="pwd '+(i===0?"sun":i===6?"sat":"")+'">'+w+'</div>'; }).join("")+
-    cells.map(function(date){
-      if(!date) return '<div class="pcell"></div>';
-      var dow=parseYmd(date).getDay();
-      var jobs=(S.month.jobs||{})[date]||[];
-      if(forMember) jobs=jobs.filter(function(j){return (j.assigned||[]).indexOf(forMember)>=0;});
-      count+=jobs.length;
+  var grid='<div class="pgrid">'+WDP.map(function(w,i){
+    return '<div class="pwd '+(i===5?"sat":i===6?"sun":"")+'">'+w+'</div>'; }).join("")+
+    cells.map(function(date, idx){
+      var col=idx%7;
+      var wkcls=col===5?"sat":col===6?"sun":"";
+      if(!date) return '<div class="pcell '+wkcls+'"></div>';
       var st=forMember?((S.month.avail||{})[forMember]||{})[date]:null;
-      return '<div class="pcell"><div class="pd '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(date.slice(-2))+
-        (st==="ng"?' ×':'')+'</div>'+jobs.map(function(j){
-          var line="";
-          if(showAll){
-            line=(j.assigned||[]).map(function(x){return memberName(x,j);}).join("・");
-          }else if(S.printNames!==false){
-            var w=(j.assigned||[]).filter(function(x){return x!==forMember;})
-                   .map(function(x){return memberName(x,j);}).filter(Boolean);
-            line = w.length ? w.join("・") : "ひとり";
-          }
-          return '<div class="pj'+(forMember?" mine":"")+toneCls(j.site)+'"><b>'+esc(j.start||"時間未定")+'</b> '+esc(j.site)+
-            (line?'<br>'+esc(line):'')+'</div>';
+      var jobs=jobsForPrint(date, forMember);
+      count+=jobs.length;
+      return '<div class="pcell '+wkcls+'"><div class="pd '+wkcls+'">'+Number(date.slice(-2))+
+        (st==="ng"?'<span class="pd-x">休</span>':'')+'</div>'+
+        jobs.map(function(j){
+          var names = withNames ? mateNames(j, forMember) : [];
+          var nameStr = names.length ? names.join("・") : (forMember && withNames ? "ひとり" : "");
+          return '<div class="pj'+(forMember?" mine":"")+toneCls(j.site)+'">'+
+            '<span class="pj-s">'+esc(j.site)+'</span>'+
+            '<span class="pj-t">'+esc(j.start||"")+'</span>'+
+            (nameStr?'<span class="pj-n">'+esc(nameStr)+'</span>':'')+'</div>';
         }).join("")+'</div>';
     }).join("")+'</div>';
 
-  return '<div class="sheetp"><h1>'+p[0]+'年'+p[1]+'月　作業予定表</h1>'+
-    '<p class="ph">'+esc(who)+'　／　アシストカレンダー'+
-      (forMember?'　（'+count+'件）':'')+'</p>'+grid+
-    '<div class="legend"><i class="t">■</i> 鳥取県　<i class="s">■</i> さわ病院'+
-      (forMember?'　<i class="m">■</i> 自分の担当'+
-        (S.printNames!==false?'　／　名前は、いっしょに入る方':''):'')+'</div>'+
-    '<p class="pfoot">出力：'+now.getFullYear()+'/'+pad(now.getMonth()+1)+'/'+pad(now.getDate())+
-      ' '+pad(now.getHours())+':'+pad(now.getMinutes())+'　株式会社ホームメンテナンス</p></div>';
+  return '<div class="sheetp"><div class="phead">'+
+      '<div class="phead-l"><div class="ph-en">'+EN_MONTHS[mon-1]+'</div>'+
+        '<div class="ph-reiwa">令和'+reiwa(year)+'年</div></div>'+
+      '<div class="phead-c"><div class="ph-yr">'+year+'年</div>'+
+        '<div class="ph-mon"><b>'+mon+'</b>月</div>'+
+        '<div class="ph-sub">定期清掃　作業予定表</div></div>'+
+      '<div class="phead-r"><div class="ph-who">'+esc(who)+
+        (forMember?'（'+count+'件）':'')+'</div>'+
+        '<div class="ph-note">※数字は作業開始の時間を表記しております。</div></div>'+
+    '</div>'+grid+
+    '<div class="pbottom"><div class="legend"><i class="t">■</i>鳥取県　<i class="s">■</i>さわ病院'+
+      (forMember?'　<i class="m">■</i>自分の担当'+(withNames?'　（名前はいっしょに入る方）':''):'')+
+      (forMember?'　　休＝出られない日':'')+'</div>'+
+    '<div class="pfoot">出力：'+now.getFullYear()+'/'+pad(now.getMonth()+1)+'/'+pad(now.getDate())+
+      ' '+pad(now.getHours())+':'+pad(now.getMinutes())+'　株式会社ホームメンテナンス</div></div></div>';
 }
 
-var PRINT_CSS = [
+/* ============ 縦型リスト（ティエムメンテナンス日程表に合わせたデザイン） ============ */
+function printSheetList(forMember){
+  var p=S.ym.split("-").map(Number);
+  var year=p[0], mon=p[1], total=daysInMonth(S.ym);
+  var withNames = (S.printNames!==false);
+  var who = forMember ? (memberName(forMember)+"　様") : "全体";
+  var now=new Date();
+  var count=0;
+
+  var rows="";
+  for(var d=1; d<=total; d++){
+    var date=S.ym+"-"+pad(d);
+    var dow=parseYmd(date).getDay();               // 0=日
+    var wkcls=dow===0?"sun":dow===6?"sat":"";
+    var st=forMember?((S.month.avail||{})[forMember]||{})[date]:null;
+    var jobs=jobsForPrint(date, forMember);
+    count+=jobs.length;
+    var content=jobs.map(function(j){
+      var t=j.start?("　"+j.start):"";
+      var names = withNames ? mateNames(j, forMember) : [];
+      var n = names.length ? "（"+names.join("・")+"）" : "";
+      return '<span class="lc-j'+toneCls(j.site)+'">'+esc(j.site)+esc(t)+n+'</span>';
+    }).join("");
+    if(!content && st==="ng") content='<span class="lc-x">休み</span>';
+    rows+='<tr class="'+wkcls+(st==="ng"?" off":"")+'">'+
+      '<td class="ld">'+d+'日</td>'+
+      '<td class="lw '+wkcls+'">'+WD[dow]+'</td>'+
+      '<td class="lc">'+content+'</td></tr>';
+  }
+
+  return '<div class="sheetp lsheet">'+
+    '<div class="ls-head"><span class="ls-m">'+mon+'月</span>'+
+      '<span class="ls-who">（'+esc(who)+'）</span>'+
+      '<span class="ls-yr">令和'+reiwa(year)+'年 '+year+'年'+
+        (forMember?'　'+count+'件':'')+'</span></div>'+
+    '<table class="ltable"><colgroup><col class="c-d"><col class="c-w"><col class="c-c"></colgroup>'+
+      '<thead><tr><th>日付</th><th>曜</th><th>作業内容（施設名・開始時間'+(withNames?'・担当者':'')+'）</th></tr></thead>'+
+      '<tbody>'+rows+'</tbody></table>'+
+    '<div class="ls-remark"><b>備考</b><span class="ls-remark-line"></span></div>'+
+    '<div class="pfoot">出力：'+now.getFullYear()+'/'+pad(now.getMonth()+1)+'/'+pad(now.getDate())+
+      ' '+pad(now.getHours())+':'+pad(now.getMinutes())+'　株式会社ホームメンテナンス</div></div>';
+}
+
+/* 印刷ウィンドウ用のCSS。縦型リストのときは用紙をたて向きにする。 */
+function printCss(){
+  var orient = (S.printLayout==="list") ? "portrait" : "landscape";
+  return [
 "*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}",
 "body{margin:0;padding:14px;background:#7B8590;",
 "  font-family:'Hiragino Kaku Gothic ProN','Hiragino Sans','Noto Sans JP','Yu Gothic',system-ui,sans-serif;",
@@ -2688,43 +2786,80 @@ var PRINT_CSS = [
 ".tools button{flex:1;padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:800;",
 "  font-family:inherit;cursor:pointer;background:#141E2C;color:#fff}",
 ".tools button+button{background:#fff;color:#141E2C}",
-".sheetp{background:#fff;padding:16px;border-radius:6px;margin-bottom:14px;box-shadow:0 4px 18px rgba(0,0,0,.2)}",
-".sheetp h1{font-size:18px;text-align:center;margin:0;font-weight:800}",
-".sheetp .ph{text-align:center;font-size:11px;color:#555;margin:5px 0 14px}",
-".pgrid{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid #333;border-left:1px solid #333}",
-".pwd{text-align:center;font-size:10px;font-weight:800;padding:3px 0;",
-"  border-right:1px solid #333;border-bottom:1px solid #333;background:#EEE}",
-".pwd.sun{color:#B3352C} .pwd.sat{color:#2B6CB0}",
-".pcell{min-height:96px;border-right:1px solid #333;border-bottom:1px solid #333;padding:2px 3px;overflow:hidden}",
-".pcell .pd{font-size:11px;font-weight:800;font-variant-numeric:tabular-nums}",
+".sheetp{background:#fff;padding:14px 16px;border-radius:6px;margin-bottom:14px;box-shadow:0 4px 18px rgba(0,0,0,.2)}",
+
+/* --- カレンダー型のヘッダー（大阪府警の予定表に合わせる） --- */
+".phead{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;",
+"  border-bottom:2.5px solid #141E2C;padding-bottom:6px;margin-bottom:10px}",
+".phead-l{flex:0 0 auto;line-height:1}",
+".ph-en{font-size:30px;font-weight:800;letter-spacing:.02em;color:#C7CDD2}",
+".ph-reiwa{font-size:12px;font-weight:700;color:#555;margin-top:3px}",
+".phead-c{flex:1;text-align:center;line-height:1.05}",
+".ph-yr{font-size:12px;font-weight:700;color:#555}",
+".ph-mon{font-size:34px;font-weight:800;color:#141E2C;letter-spacing:-.01em}",
+".ph-mon b{font-size:46px}",
+".ph-sub{font-size:14px;font-weight:800;letter-spacing:.16em;color:#141E2C;margin-top:2px}",
+".phead-r{flex:0 0 auto;text-align:right}",
+".ph-who{font-size:13px;font-weight:800;color:#141E2C}",
+".ph-note{font-size:9px;color:#777;margin-top:4px}",
+
+/* --- カレンダーのマス --- */
+".pgrid{display:grid;grid-template-columns:repeat(7,1fr);border-top:1.5px solid #333;border-left:1.5px solid #333}",
+".pwd{text-align:center;font-size:11px;font-weight:800;padding:4px 0;",
+"  border-right:1.5px solid #333;border-bottom:1.5px solid #333;background:#F3ECD9;color:#3A3120}",
+".pwd.sun{color:#B3352C;background:#F6E4E0} .pwd.sat{color:#2B6CB0;background:#E6EEF6}",
+".pcell{min-height:98px;border-right:1px solid #999;border-bottom:1px solid #999;padding:2px 3px;overflow:hidden;vertical-align:top}",
+".pcell.sat{background:#F5F8FC} .pcell.sun{background:#FCF4F3}",
+".pcell .pd{font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}",
 ".pcell .pd.sun{color:#B3352C} .pcell .pd.sat{color:#2B6CB0}",
-".pj{font-size:9px;line-height:1.35;margin-top:2px;border-left:2.5px solid #444;padding-left:4px}",
-".pj b{font-weight:800;color:#222}",
+".pd-x{font-size:9px;font-weight:800;color:#fff;background:#B3352C;border-radius:3px;padding:0 3px;margin-left:3px}",
+".pj{font-size:9px;line-height:1.28;margin-top:2px;padding-left:4px;border-left:2.5px solid #B7BEC5}",
+".pj-s{font-weight:700;color:#222}",
+".pj-t{font-weight:800;color:#333;margin-left:3px;font-variant-numeric:tabular-nums}",
+".pj-n{display:block;color:#666;font-size:8px;padding-left:1px}",
 ".pj.mine{border-left-color:#C08A00;background:#FFF8E4}",
-".pj.t-tottori{border-left-color:#2B6CB0;color:#2B6CB0;background:#EEF4FA;font-weight:700}",
-".pj.t-sawa{border-left-color:#0E7C63;color:#0E7C63;background:#EDF6F2;font-weight:700}",
-".pj.t-tottori b,.pj.t-sawa b{color:#222}",
-".legend{display:flex;gap:16px;margin-top:10px;font-size:9px;color:#666}",
+".pj.t-tottori{border-left-color:#2B6CB0;background:#EEF4FA} .pj.t-tottori .pj-s{color:#2B6CB0}",
+".pj.t-sawa{border-left-color:#0E7C63;background:#EDF6F2} .pj.t-sawa .pj-s{color:#0E7C63}",
+".pbottom{display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:12px}",
+".legend{display:flex;gap:12px;font-size:9px;color:#666;flex-wrap:wrap}",
 ".legend i{font-style:normal;font-weight:800}",
 ".legend i.t{color:#2B6CB0} .legend i.s{color:#0E7C63} .legend i.m{color:#C08A00}",
-".pfoot{margin-top:12px;font-size:9px;color:#666;text-align:right}",
+".pfoot{font-size:9px;color:#666;text-align:right;white-space:nowrap}",
+
+/* --- 縦型リスト（ティエムメンテナンス日程表に合わせる） --- */
+".lsheet{max-width:720px;margin-left:auto;margin-right:auto}",
+".ls-head{background:#0E9AD6;color:#fff;font-weight:800;text-align:center;padding:7px 10px;",
+"  border:1.2px solid #0A6E9B;border-bottom:none;display:flex;align-items:baseline;justify-content:center;gap:8px}",
+".ls-head .ls-m{font-size:20px} .ls-head .ls-who{font-size:15px}",
+".ls-head .ls-yr{font-size:11px;font-weight:700;opacity:.92;margin-left:6px}",
+".ltable{width:100%;border-collapse:collapse;table-layout:fixed}",
+".ltable col.c-d{width:60px} .ltable col.c-w{width:34px} .ltable col.c-c{width:auto}",
+".ltable th{background:#EEF1F0;border:1.2px solid #333;font-size:11px;font-weight:800;padding:4px 6px;color:#333}",
+".ltable td{border:1px solid #666;font-size:12px;padding:3px 7px;height:24px;vertical-align:middle}",
+".ltable td.ld{text-align:center;font-weight:700;font-variant-numeric:tabular-nums}",
+".ltable td.lw{text-align:center;font-weight:700}",
+".ltable td.lw.sun,.ltable tr.sun td.ld{color:#B3352C} .ltable td.lw.sat,.ltable tr.sat td.ld{color:#2B6CB0}",
+".ltable tr.sun{background:#FCF4F3} .ltable tr.sat{background:#F5F8FC}",
+".ltable tr.off td{background:#F1F3F2;color:#999}",
+".lc-j{margin-right:12px;white-space:nowrap}",
+".lc-j.t-tottori{color:#2B6CB0;font-weight:700} .lc-j.t-sawa{color:#0E7C63;font-weight:700}",
+".lc-x{color:#999}",
+".ls-remark{border:1px solid #666;border-top:none;min-height:44px;padding:4px 8px;font-size:11px;color:#333}",
+".ls-remark b{font-size:11px} .ls-remark-line{display:block}",
+
 ".pbreak{height:0}",
-"@page{size:A4 landscape;margin:8mm}",
+"@page{size:A4 "+orient+";margin:8mm}",
 "@media print{",
 "  body{background:#fff;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}",
 "  .tools{display:none}",
 "  .sheetp{margin:0;padding:0;box-shadow:none;border-radius:0}",
-"  .sheetp h1{font-size:15px;margin:0}",
-"  .sheetp .ph{font-size:9px;margin:3px 0 6px}",
 "  .pbreak{break-after:page;page-break-after:always;height:0}",
-"  .pcell{min-height:96px;height:auto;padding:2px 3px;overflow:hidden}",
-"  .pwd{padding:2px 0;font-size:9px}",
-"  .pj{font-size:8px;line-height:1.28;margin-top:1.5px;padding-left:3px}",
-"  .pcell .pd{font-size:9.5px;line-height:1.15;margin-bottom:1px}",
-"  .legend{margin-top:5px;font-size:8px}",
-"  .pfoot{margin-top:3px;font-size:8px}",
+"  .sheetp{break-inside:avoid}",
+"  .pcell{min-height:96px;height:auto;overflow:hidden}",
+"  .ltable tr{break-inside:avoid}",
 "}"
 ].join("\n");
+}
 
 /* 印刷する用紙ぜんぶ */
 function printSheetsHtml(){
@@ -2755,7 +2890,7 @@ function doPrint(){
       w.document.open();
       w.document.write('<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">'+
         '<meta name="viewport" content="width=device-width,initial-scale=1">'+
-        '<title>'+esc(title)+'</title><style>'+PRINT_CSS+'</style></head><body>'+
+        '<title>'+esc(title)+'</title><style>'+printCss()+'</style></head><body>'+
         '<div class="tools"><button onclick="window.print()">印刷／PDFで保存</button>'+
         '<button onclick="window.close()">とじる</button></div>'+
         sheets+'</body></html>');
@@ -2773,36 +2908,44 @@ function doPrint(){
 function viewPrint(){
   var adm=isAdmin();
   var sel=S.printFor;
+  var list=(S.printLayout==="list");
   var sheets=printSheetsHtml();
+
+  /* ① 形をえらぶ：カレンダー型／縦型リスト（両方に共通） */
+  var layoutRow='<div class="pchips pv-lbl"><span class="pv-tag">形</span>'+
+    '<button class="pchip'+(!list?" on":"")+'" data-act="print-layout" data-v="grid">カレンダー型</button>'+
+    '<button class="pchip'+(list?" on":"")+'" data-act="print-layout" data-v="list">縦型リスト</button></div>';
+
+  /* ② 中身をえらぶ：場所だけ／場所＋担当者（両方に共通） */
+  var withNames=(S.printNames!==false);
+  var nameRow='<div class="pchips pv-lbl"><span class="pv-tag">中身</span>'+
+    '<button class="pchip'+(!withNames?" on":"")+'" data-act="pnames" data-v="0">場所だけ</button>'+
+    '<button class="pchip'+(withNames?" on":"")+'" data-act="pnames" data-v="1">場所＋担当者</button></div>';
 
   var picker="";
   if(adm){
-    var chips='<button class="pchip'+(!sel?" on":"")+'" data-act="print-for" data-v="">全員ぶん</button>'+
+    var chips='<span class="pv-tag">対象</span>'+
+      '<button class="pchip'+(!sel?" on":"")+'" data-act="print-for" data-v="">全員ぶん</button>'+
       '<button class="pchip'+(sel==="each"?" on":"")+'" data-act="print-for" data-v="each">1人ずつ全員</button>'+
       (S.config.members||[]).filter(function(m){return m.active!==false;}).map(function(m){
         return '<button class="pchip'+(sel===m.id?" on":"")+'" data-act="print-for" data-v="'+m.id+'">'+
           esc(m.name)+'</button>';
       }).join("");
-    picker='<div class="pv-pick"><div class="pchips">'+chips+'</div>'+
-      (sel && sel!=="each"
-        ? '<div class="pchips"><button class="pchip'+(S.printNames!==false?" on":"")+'" data-act="pnames">'+
-          (S.printNames!==false?"いっしょの人の名前を出す":"自分のぶんだけ")+'</button></div>'
-        : (sel==="each"
-          ? '<div class="pchips"><button class="pchip'+(S.printNames!==false?" on":"")+'" data-act="pnames">'+
-            (S.printNames!==false?"いっしょの人の名前を出す":"自分のぶんだけ")+'</button></div>'
-          : ''))+
-      '<p class="pv-hint">だれのぶんを出しますか。横にスライドすると全員えらべます。</p></div>';
+    picker='<div class="pv-pick">'+
+      '<div class="pchips">'+chips+'</div>'+
+      layoutRow+nameRow+
+      '<p class="pv-hint">「対象」だれのぶんを、「形」どのデザインで、「中身」どこまで出すかをえらべます。横にスライドすると全部えらべます。</p></div>';
   }else{
-    picker='<div class="pv-pick"><div class="pchips">'+
-      '<button class="pchip'+(S.printNames!==false?" on":"")+'" data-act="pnames">'+
-      (S.printNames!==false?"いっしょの人の名前を出す":"自分のぶんだけ")+'</button></div>'+
-      '<p class="pv-hint">いっしょに入る方のお名前を、予定表に入れるかどうかを選べます。</p></div>';
+    picker='<div class="pv-pick">'+
+      layoutRow+nameRow+
+      '<p class="pv-hint">「形」カレンダー型か縦型リストか、「中身」場所だけか担当者も入れるかをえらべます。</p></div>';
   }
 
   var note = (adm && sel==="each")
     ? "協力者ごとに1枚ずつ、ページを分けて並べています。「PDF／印刷」をおすと別の画面がひらくので、まとめて印刷できます。"
     : "「PDF／印刷」をおすと別の画面がひらき、印刷の設定が出ます。iPhoneでは「PDFとして保存」も選べます。"+
-      "別の画面がひらかないときは、ブラウザのポップアップの設定をご確認ください。";
+      "別の画面がひらかないときは、ブラウザのポップアップの設定をご確認ください。"+
+      (list?"　縦型リストは、たて向きの用紙で出ます。":"");
 
   return '<div class="pv"><div class="pv-bar">'+
       '<button data-act="print-close">とじる</button>'+
@@ -2823,13 +2966,13 @@ document.addEventListener("click", async function(ev){
   switch(act){
     case "noop": break;
     case "login": await doLogin(S.loginId, S.memberPin); break;
-    case "logout": clearCreds(); S.autoTried=true; S.loginId=""; S.memberPin=""; await signOut(auth); break;
-    case "toggleRemember": S.remember=!!t.checked; if(!S.remember) clearCreds(); render(); break;
+    case "logout": await signOut(auth); break;
     case "refresh": render(); break;
     case "tab": S.tab=v; S.fyConfirm=false; render(); break;
     case "cal-rich": S.calRich=!S.calRich; render(); break;
     case "mates": S.showMates=(S.showMates===false); render(); break;
-    case "pnames": S.printNames=(S.printNames===false); S.scrollTop=true; render(); break;
+    case "pnames": S.printNames=(v==null? (S.printNames===false) : (v==="1")); S.scrollTop=true; render(); break;
+    case "print-layout": S.printLayout=(v==="list"?"list":"grid"); S.scrollTop=true; render(); break;
     case "find-clear": S.findQ=""; render(); break;
     case "mpick": S.mpick=!S.mpick; S.pickYear=Number(S.ym.split("-")[0]); render(); break;
     case "pick-y": S.pickYear=(S.pickYear||Number(S.ym.split("-")[0]))+Number(v); render(); break;
