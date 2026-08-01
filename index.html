@@ -652,6 +652,7 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .pcell .pd{font-size:12px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.1}
 .pcell .pd.sun{color:#B3352C} .pcell .pd.sat{color:#2B6CB0}
 .pd-x{font-size:9px; font-weight:800; color:#fff; background:#B3352C; border-radius:3px; padding:0 3px; margin-left:3px}
+.pd-hol{font-size:8px; font-weight:800; color:#B3352C; margin-left:4px; vertical-align:1px}
 .pj{font-size:9.5px; line-height:1.3; margin-top:2px; padding-left:4px; border-left:2.5px solid #B7BEC5}
 .pj-s{font-weight:700; color:#222}
 .pj-t{font-weight:800; color:#333; margin-left:3px; font-variant-numeric:tabular-nums}
@@ -681,6 +682,7 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .lc-j{margin-right:12px; white-space:nowrap}
 .lc-j.t-tottori{color:#2B6CB0; font-weight:700} .lc-j.t-sawa{color:#0E7C63; font-weight:700}
 .lc-x{color:#999}
+.lc-hol{color:#B3352C; font-size:10px; font-weight:800; margin-right:10px}
 .ls-remark{border:1px solid #666; border-top:none; min-height:44px; padding:4px 8px; font-size:11px; color:#333}
 .lsheet .pfoot{margin-top:8px}
 
@@ -777,6 +779,60 @@ function emptyMonth(){ return {jobs:{}, avail:{}}; }
 function fyOfYm(ym){ var p=ym.split("-").map(Number); return p[1]>=4?p[0]:p[0]-1; }
 function fyLabel(fy){ return fy+"年度"; }
 function fyRange(fy){ return fy+"年4月〜"+(fy+1)+"年3月"; }
+
+/* ---------- 日本の祝日（自前で計算。何年ぶんでも出せる） ---------- */
+var HOLQ={};   /* 年ごとのキャッシュ {"月-日":"名前"} */
+function nthMon(y,m,n){ var f=new Date(y,m-1,1).getDay(); return 1+((8-f)%7)+(n-1)*7; }
+function equinox(y,base){ return Math.floor(base+0.242194*(y-1980)-Math.floor((y-1980)/4)); }
+function holidaysOf(y){
+  if(HOLQ[y]) return HOLQ[y];
+  var h={};
+  function add(m,d,name){ h[m+"-"+d]=name; }
+  add(1,1,"元日");
+  add(1,nthMon(y,1,2),"成人の日");
+  add(2,11,"建国記念の日");
+  if(y>=2020) add(2,23,"天皇誕生日");
+  add(3,equinox(y,20.8431),"春分の日");
+  add(4,29,"昭和の日");
+  add(5,3,"憲法記念日"); add(5,4,"みどりの日"); add(5,5,"こどもの日");
+  add(7,nthMon(y,7,3),"海の日");
+  if(y>=2016) add(8,11,"山の日");
+  add(9,nthMon(y,9,3),"敬老の日");
+  add(9,equinox(y,23.2488),"秋分の日");
+  add(10,nthMon(y,10,2),"スポーツの日");
+  add(11,3,"文化の日");
+  add(11,23,"勤労感謝の日");
+  /* 特別な年（即位・オリンピックで移動した年） */
+  if(y===2019){ add(5,1,"即位の日"); add(10,22,"即位礼正殿の儀"); }
+  if(y===2020){ delete h["7-"+nthMon(2020,7,3)]; delete h["8-11"]; delete h["10-"+nthMon(2020,10,2)];
+    add(7,23,"海の日"); add(7,24,"スポーツの日"); add(8,10,"山の日"); }
+  if(y===2021){ delete h["7-"+nthMon(2021,7,3)]; delete h["8-11"]; delete h["10-"+nthMon(2021,10,2)];
+    add(7,22,"海の日"); add(7,23,"スポーツの日"); add(8,8,"山の日"); }
+  /* 振替休日：祝日が日曜のときは、その次の「祝日でない日」がお休みになる */
+  Object.keys(h).slice().forEach(function(k){
+    var p=k.split("-").map(Number);
+    var d=new Date(y,p[0]-1,p[1]);
+    if(d.getDay()!==0) return;
+    var n=new Date(d);
+    do{ n.setDate(n.getDate()+1); }while(h[(n.getMonth()+1)+"-"+n.getDate()]);
+    if(n.getFullYear()===y) h[(n.getMonth()+1)+"-"+n.getDate()]="振替休日";
+  });
+  /* 国民の休日：祝日と祝日にはさまれた平日もお休みになる（9月の連休など） */
+  for(var m=1;m<=12;m++){
+    var dim=new Date(y,m,0).getDate();
+    for(var d2=2;d2<dim;d2++){
+      if(!h[m+"-"+d2] && h[m+"-"+(d2-1)] && h[m+"-"+(d2+1)] && new Date(y,m-1,d2).getDay()!==0)
+        h[m+"-"+d2]="休日";
+    }
+  }
+  HOLQ[y]=h; return h;
+}
+function holName(date){ var p=date.split("-").map(Number); return holidaysOf(p[0])[p[1]+"-"+p[2]]||""; }
+/* 日曜と祝日は赤（sun）、土曜は青（sat）。画面と印刷の両方でこれを使う */
+function dayCls(date){
+  var d=parseYmd(date).getDay();
+  return (d===0||holName(date))?"sun":(d===6?"sat":"");
+}
 
 /* ============================================================
    状態
@@ -1171,8 +1227,8 @@ function viewHome(){
     var mid = mine.length
       ? '<b>'+esc(mine.map(function(j){return j.site;}).join("・"))+'</b>'+esc(mine[0].start||"時間未定")+(mine.length>1?" ほか":"")
       : "予定なし";
-    h+='<div class="drow'+(date===today?" today":"")+(dow===0?" sunbg":dow===6?" satbg":"")+'">'+
-      '<button class="ddate '+(dow===0?"sun":dow===6?"sat":"")+'" data-act="day" data-v="'+date+'">'+
+    h+='<div class="drow'+(date===today?" today":"")+(function(){var c=dayCls(date);return c==="sun"?" sunbg":c==="sat"?" satbg":"";})()+'">'+
+      '<button class="ddate '+dayCls(date)+'" data-act="day" data-v="'+date+'">'+
         '<b>'+d+'</b><small>'+WD[dow]+'</small></button>'+
       '<div class="dmid">'+mid+'</div><div class="dbtns">'+
         '<button class="db ok'+(st==="ok"?" on":"")+'" data-act="avail" data-id="'+me+'" data-v="ok" data-d="'+date+'">○</button>'+
@@ -1241,7 +1297,7 @@ function calendarGrid(){
     }
 
     return '<button class="'+cls+'" data-act="day" data-v="'+date+'">'+
-      '<span class="dnum '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(date.slice(-2))+'</span>'+
+      '<span class="dnum '+dayCls(date)+'">'+Number(date.slice(-2))+'</span>'+
       (st?'<span class="cell-x '+st+'">'+(st==="ng"?"✕":"○")+'</span>':'')+
       body+
       (isShort&&adm&&!rich?'<span class="corner"></span>':'')+'</button>';
@@ -1280,7 +1336,7 @@ function viewList(){
     var dow=parseYmd(r.date).getDay(), st=me?((S.month.avail||{})[me]||{})[r.date]:null;
     return '<div class="lrow'+(r.date===today?" today":"")+'">'+
       '<button class="lhead" data-act="day" data-v="'+r.date+'">'+
-      '<span class="lday '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(r.date.slice(-2))+'<small>'+WD[dow]+'</small></span>'+
+      '<span class="lday '+dayCls(r.date)+'">'+Number(r.date.slice(-2))+'<small>'+WD[dow]+'</small></span>'+
       '<span class="lspacer"></span>'+
       (st==="ng"?'<span class="tag ngt">出られない</span>':st==="ok"?'<span class="tag okt">出られる</span>':'')+
       '<span class="chev">›</span></button>'+
@@ -1352,8 +1408,9 @@ function gridFoot(ms){
 function gridRows(rows, ms, today){
   return rows.map(function(r){
     var dow=parseYmd(r.date).getDay(), j=r.job;
-    var cls=(r.first?"newday ":"")+(dow===0?"sunrow":dow===6?"satrow":"")+(r.date===today?" todayrow":"");
-    var left='<td class="gd '+(dow===0?"sun":dow===6?"sat":"")+'" data-act="day" data-v="'+r.date+'">'+
+    var dc=dayCls(r.date);
+    var cls=(r.first?"newday ":"")+(dc==="sun"?"sunrow":dc==="sat"?"satrow":"")+(r.date===today?" todayrow":"");
+    var left='<td class="gd '+dc+'" data-act="day" data-v="'+r.date+'">'+
       (r.first?'<b>'+Number(r.date.slice(-2))+'</b><small>'+WD[dow]+'</small>':'')+'</td>';
     if(!j){
       /* 現場のない日は、その日ぜんぶの出欠だけ */
@@ -2488,7 +2545,7 @@ function memberSheet(){
       var st=((S.month.avail||{})[id]||{})[date];
       var cls="cell"+(date===today?" today":"")+(st==="ng"?" ngd":st==="ok"?" okd":"")+(jobs.length?" mine":"");
       return '<button class="'+cls+'" data-act="mday" data-v="'+date+'">'+
-        '<span class="dnum '+(dow===0?"sun":dow===6?"sat":"")+'">'+Number(date.slice(-2))+'</span>'+
+        '<span class="dnum '+dayCls(date)+'">'+Number(date.slice(-2))+'</span>'+
         (st?'<span class="cell-x '+st+'">'+(st==="ng"?"×":"○")+'</span>':'')+
         '<span class="jlist">'+jobs.slice(0,3).map(function(j){
           var w=(j.assigned||[]).filter(function(x){return x!==id;})
@@ -2502,7 +2559,7 @@ function memberSheet(){
 
   var list=mine.map(function(r){
     var dow=parseYmd(r.date).getDay();
-    return '<div class="mrow2"><span class="mr-d '+(dow===0?"sun":dow===6?"sat":"")+'">'+
+    return '<div class="mrow2"><span class="mr-d '+dayCls(r.date)+'">'+
       Number(r.date.slice(-2))+'<small>'+WD[dow]+'</small></span><span class="mr-j">'+
       r.jobs.map(function(j){
         var w=(j.assigned||[]).filter(function(x){return x!==id;}).map(function(x){return memberName(x,j);}).join("・");
@@ -2699,10 +2756,13 @@ function printSheetGrid(forMember){
       var col=idx%7;
       var wkcls=col===5?"sat":col===6?"sun":"";
       if(!date) return '<div class="pcell '+wkcls+'"></div>';
+      wkcls=dayCls(date);                            /* 祝日は日曜と同じ赤にする */
+      var hn=holName(date);
       var st=forMember?((S.month.avail||{})[forMember]||{})[date]:null;
       var jobs=jobsForPrint(date, forMember);
       count+=jobs.length;
       return '<div class="pcell '+wkcls+'"><div class="pd '+wkcls+'">'+Number(date.slice(-2))+
+        (hn?'<span class="pd-hol">'+esc(hn)+'</span>':'')+
         (st==="ng"?'<span class="pd-x">休</span>':'')+'</div>'+
         jobs.map(function(j){
           var names = withNames ? mateNames(j, forMember) : [];
@@ -2744,7 +2804,8 @@ function printSheetList(forMember){
   for(var d=1; d<=total; d++){
     var date=S.ym+"-"+pad(d);
     var dow=parseYmd(date).getDay();               // 0=日
-    var wkcls=dow===0?"sun":dow===6?"sat":"";
+    var wkcls=dayCls(date);                          /* 祝日は日曜と同じ赤にする */
+    var hn=holName(date);
     var st=forMember?((S.month.avail||{})[forMember]||{})[date]:null;
     var jobs=jobsForPrint(date, forMember);
     count+=jobs.length;
@@ -2755,6 +2816,7 @@ function printSheetList(forMember){
       return '<span class="lc-j'+toneCls(j.site)+'">'+esc(j.site)+esc(t)+n+'</span>';
     }).join("");
     if(!content && st==="ng") content='<span class="lc-x">休み</span>';
+    if(hn) content='<span class="lc-hol">'+esc(hn)+'</span>'+content;
     rows+='<tr class="'+wkcls+(st==="ng"?" off":"")+'">'+
       '<td class="ld">'+d+'日</td>'+
       '<td class="lw '+wkcls+'">'+WD[dow]+'</td>'+
@@ -2813,6 +2875,7 @@ function printCss(){
 ".pcell .pd{font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}",
 ".pcell .pd.sun{color:#B3352C} .pcell .pd.sat{color:#2B6CB0}",
 ".pd-x{font-size:9px;font-weight:800;color:#fff;background:#B3352C;border-radius:3px;padding:0 3px;margin-left:3px}",
+".pd-hol{font-size:7.5px;font-weight:800;color:#B3352C;margin-left:4px;vertical-align:1px}",
 ".pj{font-size:9px;line-height:1.28;margin-top:2px;padding-left:4px;border-left:2.5px solid #B7BEC5}",
 ".pj-s{font-weight:700;color:#222}",
 ".pj-t{font-weight:800;color:#333;margin-left:3px;font-variant-numeric:tabular-nums}",
@@ -2844,6 +2907,7 @@ function printCss(){
 ".lc-j{margin-right:12px;white-space:nowrap}",
 ".lc-j.t-tottori{color:#2B6CB0;font-weight:700} .lc-j.t-sawa{color:#0E7C63;font-weight:700}",
 ".lc-x{color:#999}",
+".lc-hol{color:#B3352C;font-size:10px;font-weight:800;margin-right:10px}",
 ".ls-remark{border:1px solid #666;border-top:none;min-height:44px;padding:4px 8px;font-size:11px;color:#333}",
 ".ls-remark b{font-size:11px} .ls-remark-line{display:block}",
 
