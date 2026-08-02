@@ -1082,7 +1082,18 @@ function render(){
   }catch(e){}
 
   el.innerHTML = (S.authed && S.session) ? viewApp() : viewLogin();
-  if(window.scrollTo) window.scrollTo(0, toTop?0:y);
+  /* iOS Safari 対策：指でスクロール中に window.scrollTo が走るとスクロールが
+     取り消されてしまう。位置を本当に変える必要があるときだけ動かす。
+     ・タブ切替や明示指定（toTop）→ いちばん上へ
+     ・それ以外の更新 → 位置がズレていなければ何もしない（Safariの邪魔をしない） */
+  if(window.scrollTo){
+    if(toTop){
+      window.scrollTo(0,0);
+    }else{
+      var curY = window.scrollY || (document.documentElement&&document.documentElement.scrollTop) || 0;
+      if(Math.abs(curY - y) > 2) window.scrollTo(0, y);
+    }
+  }
 
   if(!toTop){
     try{
