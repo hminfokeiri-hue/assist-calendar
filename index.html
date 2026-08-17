@@ -850,7 +850,7 @@ function dayCls(date){
    状態
    ============================================================ */
 var S={
-  booting:true, authed:false, config:{members:[],sites:[],services:[],showAnnualToMembers:true},
+  booting:true, authed:false, config:{members:[],sites:[],services:[],showAnnualToMembers:true,memberOrder:[]},
   annualByFy:{}, fy:2026, ym:"2026-08", month:emptyMonth(), session:null,
   openDay:null, openSite:null, tab:"home", syncedAt:null, toast:null,
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
@@ -870,6 +870,18 @@ function memberName(id,job){
     if(i>=0 && job.assignedNames[i]) return job.assignedNames[i];
   }
   return NAMES[id]||"—";
+}
+/* メンバーの並び順。管理者が決めた順（config/app の memberOrder）が先。
+   まだ順番に入っていない人は、これまでどおりID順で後ろに並ぶ。 */
+function sortMembers(){
+  var ord=S.config.memberOrder||[], rank={};
+  ord.forEach(function(id,i){ rank[id]=i; });
+  (S.config.members||[]).sort(function(a,b){
+    var ar=(rank[a.id]===undefined)?9999:rank[a.id];
+    var br=(rank[b.id]===undefined)?9999:rank[b.id];
+    if(ar!==br) return ar-br;
+    return String(a.loginId).localeCompare(String(b.loginId));
+  });
 }
 function meId(){ return S.session&&S.session.memberId?S.session.memberId:null; }
 function isAdmin(){ return S.session&&S.session.role==="admin"; }
@@ -902,7 +914,7 @@ onAuthStateChanged(auth, async function(user){
   unsubAll();
   if(!user){
     S.session=null; S.authed=false; S.booting=false; S.loginBusy=false;
-    S.config={members:[],sites:[],services:[],showAnnualToMembers:true};
+    S.config={members:[],sites:[],services:[],showAnnualToMembers:true,memberOrder:[]};
     S.annualByFy={}; S.month=emptyMonth(); NAMES={};
     render(); return;
   }
@@ -942,6 +954,8 @@ function subscribeConfig(){
     var v=d.data()||{};
     S.config.services=v.services||[];
     S.config.showAnnualToMembers=v.showAnnualToMembers!==false;
+    S.config.memberOrder=v.memberOrder||[];
+    sortMembers();
     render();
   }, err));
   subs.config.push(onSnapshot(doc(db,"config","sites"), function(d){
@@ -951,14 +965,7 @@ function subscribeConfig(){
   if(isAdmin()){
     subs.config.push(onSnapshot(collection(db,"members"), function(snap){
       var list=[]; snap.forEach(function(d){ list.push(Object.assign({id:d.id}, d.data())); });
-      /* 管理者が決めた並び順（order）が先。まだ番号のない人は、これまでどおりID順で後ろへ */
-      list.sort(function(a,b){
-        var ao=(typeof a.order==="number")?a.order:9999;
-        var bo=(typeof b.order==="number")?b.order:9999;
-        if(ao!==bo) return ao-bo;
-        return String(a.loginId).localeCompare(String(b.loginId));
-      });
-      S.config.members=list; render();
+      S.config.members=list; sortMembers(); render();
     }, err));
   }else{
     subs.config.push(onSnapshot(doc(db,"members",meId()), function(d){
@@ -1051,15 +1058,9 @@ async function saveMember(id, patch){
   try{ await setDoc(doc(db,"members",id), patch, {merge:true}); }
   catch(e){ flash("保存できませんでした（"+(e.code||"")+"）"); }
 }
-/* メンバーの並び順を、0・1・2… の番号で保存する */
-async function saveMemberOrder(list){
-  try{
-    var batch=writeBatch(db);
-    list.forEach(function(m,i){ batch.set(doc(db,"members",m.id), {order:i}, {merge:true}); });
-    await batch.commit();
-  }catch(e){ flash("並び順を保存できませんでした（"+(e.code||e.message||"")+"）"); }
-}
-/* ひとつ上／下へ動かす（画面を先に動かして、あとから保存する） */
+/* メンバーをひとつ上／下へ動かす。
+   並び順は名簿ではなく config/app に「IDを並べた一覧」として持つ。
+   （名簿は書きかえられる項目がルールで決まっているため） */
 async function moveMember(id, delta){
   var list=(S.config.members||[]).slice();
   var i=-1;
@@ -1068,9 +1069,14 @@ async function moveMember(id, delta){
   var j=i+Number(delta);
   if(j<0 || j>=list.length) return;
   var tmp=list[i]; list[i]=list[j]; list[j]=tmp;
-  S.config.members=list.map(function(m,n){ return Object.assign({},m,{order:n}); });
+  var ids=list.map(function(m){ return m.id; });
+  S.config.members=list; S.config.memberOrder=ids;
   render();
-  await saveMemberOrder(S.config.members);
+  try{
+    await setDoc(doc(db,"config","app"), {memberOrder:ids}, {merge:true});
+  }catch(e){
+    flash("並び順を保存できませんでした（"+(e.code||e.message||"")+"）");
+  }
 }
 
 /* ============================================================
@@ -2530,8 +2536,7 @@ async function addMember(){
     /* 4) 役割と名簿を登録する */
     var mid="m"+Date.now().toString(36);
     await setDoc(doc(db,"uids",newUid), {role:"member", memberId:mid});
-    await setDoc(doc(db,"members",mid), {name:name, loginId:lid, active:true, uid:newUid, pin:pin,
-      order:(S.config.members||[]).length});
+    await setDoc(doc(db,"members",mid), {name:name, loginId:lid, active:true, uid:newUid, pin:pin});
 
     S.addingMember=false;
     S.addDone={name:name, loginId:lid, pin:pin};
@@ -3398,7 +3403,7 @@ document.addEventListener("click", async function(ev){
       flash("種類をけしました。登録ずみの履行内容は残ります"); break;
 
     /* メンバー */
-    case "sort-mode": S.sortMode=!S.sortMode; S.pinEdit=null; S.scrollTop=false; render(); break;
+    case "sort-mode": S.sortMode=!S.sortMode; S.pinEdit=null; render(); break;
     case "member-up":   await moveMember(id,-1); break;
     case "member-down": await moveMember(id, 1); break;
     case "member-toggle": {
