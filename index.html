@@ -733,6 +733,18 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .notebox p{font-size:12px; color:var(--ink2); line-height:1.7; margin:6px 0 0}
 .notebox code{background:#EDF1F0; padding:1px 5px; border-radius:4px; font-size:11px}
 .big-btn[disabled]{opacity:.5}
+/* ============================================================
+   メンバーの並び替え
+   ============================================================ */
+.sortbar{display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap}
+.mrow.sorting{gap:10px; padding:11px 12px}
+.mno{flex:0 0 26px; font-size:12px; font-weight:800; color:var(--ink2); font-variant-numeric:tabular-nums; text-align:right}
+.mname.ro{flex:1; min-width:0; font-size:15px; font-weight:700; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap}
+.mmove{flex:0 0 auto; width:44px; height:38px; border-radius:9px; background:#EDF1F0;
+  border:2px solid var(--line); font-size:17px; font-weight:800; color:var(--ink)}
+.mmove:active{background:#DFE6E4}
+.mmove[disabled]{opacity:.28}
 </style>
 </head>
 <body>
@@ -844,7 +856,7 @@ var S={
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
   fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
-  imp:null, impBusy:false, impMsg:"", calRich:true, showMates:true, printNames:true, printLayout:"grid", hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false, cFilter:"active"
+  imp:null, impBusy:false, impMsg:"", calRich:true, showMates:true, printNames:true, printLayout:"grid", hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false, cFilter:"active", sortMode:false
 };
 var _lastTab=null;
 var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
@@ -939,7 +951,13 @@ function subscribeConfig(){
   if(isAdmin()){
     subs.config.push(onSnapshot(collection(db,"members"), function(snap){
       var list=[]; snap.forEach(function(d){ list.push(Object.assign({id:d.id}, d.data())); });
-      list.sort(function(a,b){ return String(a.loginId).localeCompare(String(b.loginId)); });
+      /* 管理者が決めた並び順（order）が先。まだ番号のない人は、これまでどおりID順で後ろへ */
+      list.sort(function(a,b){
+        var ao=(typeof a.order==="number")?a.order:9999;
+        var bo=(typeof b.order==="number")?b.order:9999;
+        if(ao!==bo) return ao-bo;
+        return String(a.loginId).localeCompare(String(b.loginId));
+      });
       S.config.members=list; render();
     }, err));
   }else{
@@ -1032,6 +1050,27 @@ async function saveAppConfig(patch){
 async function saveMember(id, patch){
   try{ await setDoc(doc(db,"members",id), patch, {merge:true}); }
   catch(e){ flash("保存できませんでした（"+(e.code||"")+"）"); }
+}
+/* メンバーの並び順を、0・1・2… の番号で保存する */
+async function saveMemberOrder(list){
+  try{
+    var batch=writeBatch(db);
+    list.forEach(function(m,i){ batch.set(doc(db,"members",m.id), {order:i}, {merge:true}); });
+    await batch.commit();
+  }catch(e){ flash("並び順を保存できませんでした（"+(e.code||e.message||"")+"）"); }
+}
+/* ひとつ上／下へ動かす（画面を先に動かして、あとから保存する） */
+async function moveMember(id, delta){
+  var list=(S.config.members||[]).slice();
+  var i=-1;
+  for(var k=0;k<list.length;k++) if(list[k].id===id) i=k;
+  if(i<0) return;
+  var j=i+Number(delta);
+  if(j<0 || j>=list.length) return;
+  var tmp=list[i]; list[i]=list[j]; list[j]=tmp;
+  S.config.members=list.map(function(m,n){ return Object.assign({},m,{order:n}); });
+  render();
+  await saveMemberOrder(S.config.members);
 }
 
 /* ============================================================
@@ -2322,8 +2361,26 @@ function viewTeam(){
     '<p class="hint">名前をなおすと、その人の画面にもすぐ反映されます（過去の割り当ては内部のIDで結んでいるので崩れません）。<br>'+
     '<b>件数のボタンをおすと、その方の月別カレンダーが見られます。</b>（'+p[0]+'年'+Number(p[1])+'月）<br>'+
     '暗証番号のボタンをおすと、確認や変更ができます。</p>'+
-    '<div class="mlist">'+(S.config.members||[]).map(function(m){
+    '<div class="sortbar">'+
+      '<button class="pill toggle'+(S.sortMode?" on":"")+'" data-act="sort-mode">'+
+        (S.sortMode?"並べ替えをおわる":"並び順を変える")+'</button>'+
+      '<span class="hint" style="margin:0">'+
+        (S.sortMode
+          ? "↑↓ でうごかします。配置表の列、担当者をえらぶ画面、代理入力、PDFの人えらびが、この順になります。"
+          : "配置表の列などに出てくる順番を変えられます。")+
+      '</span></div>'+
+    '<div class="mlist">'+(S.config.members||[]).map(function(m,mi){
       var open=(S.pinEdit===m.id);
+      if(S.sortMode){
+        var last=(S.config.members||[]).length-1;
+        return '<div class="mrow sorting'+(m.active===false?" off":"")+'">'+
+          '<span class="mno">'+(mi+1)+'</span>'+
+          '<span class="mname ro">'+esc(m.name)+'</span>'+
+          '<span class="mpin ro">'+esc(m.loginId||"")+'</span>'+
+          '<button class="mmove" data-act="member-up" data-id="'+m.id+'"'+(mi===0?" disabled":"")+'>↑</button>'+
+          '<button class="mmove" data-act="member-down" data-id="'+m.id+'"'+(mi===last?" disabled":"")+'>↓</button>'+
+        '</div>';
+      }
       return '<div class="mrow'+(m.active===false?" off":"")+(open?" opened":"")+'">'+
         '<input class="mname" value="'+esc(m.name)+'" data-field="rename" data-id="'+m.id+'">'+
         '<span><span class="mpin ro">'+esc(m.loginId||"")+'</span><small class="mpin-h">ID</small></span>'+
@@ -2473,7 +2530,8 @@ async function addMember(){
     /* 4) 役割と名簿を登録する */
     var mid="m"+Date.now().toString(36);
     await setDoc(doc(db,"uids",newUid), {role:"member", memberId:mid});
-    await setDoc(doc(db,"members",mid), {name:name, loginId:lid, active:true, uid:newUid, pin:pin});
+    await setDoc(doc(db,"members",mid), {name:name, loginId:lid, active:true, uid:newUid, pin:pin,
+      order:(S.config.members||[]).length});
 
     S.addingMember=false;
     S.addDone={name:name, loginId:lid, pin:pin};
@@ -3340,6 +3398,9 @@ document.addEventListener("click", async function(ev){
       flash("種類をけしました。登録ずみの履行内容は残ります"); break;
 
     /* メンバー */
+    case "sort-mode": S.sortMode=!S.sortMode; S.pinEdit=null; S.scrollTop=false; render(); break;
+    case "member-up":   await moveMember(id,-1); break;
+    case "member-down": await moveMember(id, 1); break;
     case "member-toggle": {
       var m2=(S.config.members||[]).find(function(x){return x.id===id;});
       var na=!!(m2 && m2.active===false);
