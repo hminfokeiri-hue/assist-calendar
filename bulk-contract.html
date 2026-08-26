@@ -49,6 +49,11 @@ ul.hits input{margin-top:4px;width:20px;height:20px;flex:none}
 .hint{font-size:12px;color:var(--ink2);margin:6px 0 0}
 .count{font-size:13px;color:var(--ink2);margin-top:8px}
 .hide{display:none}
+label.sw{display:flex;gap:9px;align-items:center;margin:0 0 8px;
+  font-size:13px;font-weight:700;color:var(--ink)}
+label.sw input{width:20px;height:20px;flex:none;margin:0}
+.gp{display:inline-block;font-size:11px;font-weight:700;color:var(--ink2);
+  background:var(--paper);border-radius:5px;padding:1px 6px;margin-left:6px}
 </style>
 </head>
 <body>
@@ -71,8 +76,10 @@ ul.hits input{margin-top:4px;width:20px;height:20px;flex:none}
   <section class="blk hide" id="pickBlk">
     <h2>2. 対象の施設をえらぶ</h2>
     <label class="f"><span>名前にふくまれる言葉</span>
-      <input type="text" id="kw" value="警察署"></label>
-    <p class="hint">この言葉が名前に入っている施設を拾います。下の一覧でチェックを外せば、その施設は変更しません。</p>
+      <input type="text" id="kw" value="警察署" placeholder="空にすると、すべての施設が出ます"></label>
+    <label class="sw"><input type="checkbox" id="only">
+      <span>下の期間になっていない施設だけ出す</span></label>
+    <p class="hint">言葉を空にして上のチェックを入れると、まだ登録できていない施設だけが並びます。一覧でチェックを外せば、その施設は変更しません。</p>
     <div id="hits"></div>
     <div class="count" id="cnt"></div>
     <div class="bar">
@@ -116,6 +123,9 @@ import { firebaseConfig, ID_DOMAIN } from "./firebase-config.js";
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
+
+const GROUPS = {"国":"国（国土交通省）","府":"大阪府","市":"大阪市","社協":"社会福祉協議会",
+  "民間":"民間病院","鳥取":"鳥取県","独法":"独立行政法人"};
 
 const $ = function(id){ return document.getElementById(id); };
 let SITES = [];          /* config/sites の list をそのまま持つ */
@@ -170,12 +180,18 @@ $("btnLogin").addEventListener("click", async function(){
 /* ---------- しぼりこみ ---------- */
 function matched(){
   const kw = $("kw").value.trim();
-  if(!kw) return [];
-  return SITES.filter(function(s){ return String(s.name||"").indexOf(kw) >= 0; });
+  const only = $("only").checked;
+  const st = $("dStart").value, en = $("dEnd").value;
+  return SITES.filter(function(s){
+    if(kw && String(s.name||"").indexOf(kw) < 0) return false;
+    if(only && s.start === st && s.end === en) return false;
+    return true;
+  });
 }
 function renderHits(){
   const list = matched();
-  list.forEach(function(s){ if(PICKED[s.id] === undefined) PICKED[s.id] = true; });
+  const on = !!$("kw").value.trim();   /* 言葉で絞ったときだけ、最初から選ばれた状態にする */
+  list.forEach(function(s){ if(PICKED[s.id] === undefined) PICKED[s.id] = on; });
   if(!list.length){
     $("hits").innerHTML = '<p class="hint">あてはまる施設がありませんでした。言葉を変えてみてください。</p>';
     $("cnt").textContent = "";
@@ -183,7 +199,8 @@ function renderHits(){
   }
   $("hits").innerHTML = '<ul class="hits">' + list.map(function(s){
     return '<li><input type="checkbox" data-id="'+esc(s.id)+'"'+(PICKED[s.id]?" checked":"")+'>'+
-      '<div><div class="nm">'+esc(s.name)+'</div>'+
+      '<div><div class="nm">'+esc(s.name)+
+        '<span class="gp">'+esc(GROUPS[s.group]||s.group||"区分なし")+'</span></div>'+
       '<div class="pd">いま：'+esc(periodText(s))+'</div></div></li>';
   }).join("") + '</ul>';
   updateCount();
@@ -193,6 +210,9 @@ function updateCount(){
   $("cnt").textContent = "全 "+SITES.length+" 施設のうち、"+n+" 施設に書き込みます。";
 }
 $("kw").addEventListener("input", renderHits);
+$("only").addEventListener("change", renderHits);
+$("dStart").addEventListener("change", renderHits);
+$("dEnd").addEventListener("change", renderHits);
 $("hits").addEventListener("change", function(ev){
   const cb = ev.target;
   if(cb && cb.dataset && cb.dataset.id){ PICKED[cb.dataset.id] = cb.checked; updateCount(); }
