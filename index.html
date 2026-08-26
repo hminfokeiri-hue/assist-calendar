@@ -2180,15 +2180,36 @@ function normName(t){
 }
 /* ============================================================
    現場名の色分け
-   鳥取県の施設は青、さわ病院は緑（病棟名で登録されているぶんも拾う）
+   鳥取県の施設は青、さわ病院は緑
+
+   さわ病院は「A5病棟　全般剥離」「食養課」のように、病棟名・部署名で
+   現場を登録しています。予定表によって言い方が少しずつ違う
+   （「共用」と「共用部」など）ので、次の3段階で見分けます。
+
+     1) 契約先そのままの名前と一致するか
+     2) 年間予定に入れた履行内容と、作業の言い方（全般剥離・共用 など）を
+        取りのぞいた形で見くらべて一致するか
+     3) さわ病院ならではの言葉（病棟・食養課 など）が入っているか
+
+   3) の言葉は下の SAWA_WORDS に並べています。緑にしたい名前が
+   増えたときは、ここに言葉を足してください。
    ============================================================ */
+
+/* さわ病院とわかる言葉。これが名前に入っていれば緑にする */
+var SAWA_WORDS = ["病棟","看護学校","ダイニングルーム","食養課","医事課","薬局",
+                  "作業療法室","リハビリ","デイケア","DC"];
+
+/* 名前のうしろについている「作業の言い方」を取りのぞく（A5病棟全般剥離 → A5病棟） */
+var SAWA_TAIL = /(全般剥離|全般|剥離|共用部|共用|定期清掃|清掃|ワックス|WAX)+$/i;
+function siteCore(n){ return String(n||"").replace(SAWA_TAIL,""); }
+
 var TONE_CACHE=null, TONE_KEY="";
 function buildTone(){
   var key=(S.config.sites||[]).length+"|"+S.fy+"|"+
     Object.keys(annualOf(S.fy)).length+"|"+Object.keys(annualOf(S.fy-1)).length;
   if(TONE_CACHE && TONE_KEY===key) return TONE_CACHE;
 
-  var map={};
+  var map={}, cores=[];
   (S.config.sites||[]).forEach(function(x){
     var t = x.group==="鳥取" ? "tottori" : (x.name==="さわ病院" ? "sawa" : "");
     if(t) map[normName(x.name)]=t;
@@ -2199,16 +2220,34 @@ function buildTone(){
     [S.fy-1, S.fy, S.fy+1].forEach(function(f){
       (annualOf(f)[x.id]||[]).forEach(function(p){
         var n=normName(p.service);
-        if(n && !map[n]) map[n]="sawa";
+        if(!n) return;
+        if(!map[n]) map[n]="sawa";
+        var c=siteCore(n);
+        if(c.length>=2 && cores.indexOf(c)<0) cores.push(c);
       });
     });
   });
-  TONE_CACHE=map; TONE_KEY=key;
-  return map;
+  TONE_CACHE={map:map, cores:cores}; TONE_KEY=key;
+  return TONE_CACHE;
 }
 function siteTone(name){
-  var m=buildTone();
-  return m[normName(name)] || "";
+  var T=buildTone(), n=normName(name);
+  if(!n) return "";
+  /* 1) そのままの名前で一致 */
+  if(T.map[n]) return T.map[n];
+  /* 2) 作業の言い方を取りのぞいて見くらべる（C3病棟共用 と C3病棟共用部 など） */
+  var c=siteCore(n);
+  if(c.length>=2){
+    for(var i=0;i<T.cores.length;i++){
+      var k=T.cores[i];
+      if(c===k || c.indexOf(k)>=0 || k.indexOf(c)>=0) return "sawa";
+    }
+  }
+  /* 3) さわ病院ならではの言葉が入っていれば緑 */
+  for(var j=0;j<SAWA_WORDS.length;j++){
+    if(n.indexOf(SAWA_WORDS[j])>=0) return "sawa";
+  }
+  return "";
 }
 /* 全角を1、半角を0.5として文字幅を数える */
 function textW(t){
