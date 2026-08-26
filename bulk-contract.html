@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>契約期間の一括登録｜アシストカレンダー</title>
+<style>
+:root{
+  --ink:#141E2C; --ink2:#5A6675; --line:#DCE1E4;
+  --paper:#EEF1F0; --card:#FFFFFF;
+  --hi:#F2B01E; --ok:#0E7C63; --ng:#C0402F;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  font-size:15px;line-height:1.7;padding:16px}
+.wrap{max-width:640px;margin:0 auto}
+h1{font-size:19px;margin:0 0 4px}
+.lead{color:var(--ink2);font-size:13px;margin:0 0 16px}
+.blk{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:14px;margin-bottom:14px}
+.blk h2{font-size:15px;margin:0 0 10px}
+label.f{display:block;margin-bottom:10px}
+label.f span{display:block;font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:4px}
+input[type=text],input[type=password],input[type=date]{
+  width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;
+  font-size:16px;font-family:inherit;background:#fff;color:var(--ink)}
+.f-row{display:flex;gap:10px}
+.f-row label.f{flex:1}
+button{font-family:inherit;font-size:15px;font-weight:700;padding:11px 16px;
+  border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+button:focus-visible{outline:3px solid var(--hi);outline-offset:2px}
+button.primary{background:var(--ink);color:#fff;border-color:var(--ink);width:100%}
+button.go{background:var(--ok);color:#fff;border-color:var(--ok);width:100%}
+button:disabled{opacity:.5;cursor:default}
+.bar{display:flex;gap:8px;margin-top:10px}
+.bar button{flex:1}
+ul.hits{list-style:none;margin:10px 0 0;padding:0;max-height:340px;overflow:auto;
+  border:1px solid var(--line);border-radius:9px}
+ul.hits li{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;
+  border-bottom:1px solid var(--line)}
+ul.hits li:last-child{border-bottom:0}
+ul.hits input{margin-top:4px;width:20px;height:20px;flex:none}
+.nm{font-weight:700;font-size:14px}
+.pd{font-size:12px;color:var(--ink2)}
+.msg{font-size:13px;padding:9px 11px;border-radius:8px;margin-top:10px}
+.msg.err{background:#FBECEA;color:var(--ng)}
+.msg.ok{background:#E6F2EF;color:var(--ok)}
+.hint{font-size:12px;color:var(--ink2);margin:6px 0 0}
+.count{font-size:13px;color:var(--ink2);margin-top:8px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>契約期間の一括登録</h1>
+  <p class="lead">同じ契約期間の施設を、まとめて登録するための管理ページです。使い終わったら閉じて構いません。</p>
+
+  <!-- ① ログイン -->
+  <section class="blk" id="loginBlk">
+    <h2>1. 管理者でログイン</h2>
+    <label class="f"><span>ID</span>
+      <input type="text" id="lid" value="0001" autocomplete="username"></label>
+    <label class="f"><span>暗証番号</span>
+      <input type="password" id="lpin" autocomplete="current-password"></label>
+    <button class="primary" id="btnLogin">ログインする</button>
+    <div id="loginMsg"></div>
+  </section>
+
+  <!-- ② 対象をえらぶ -->
+  <section class="blk hide" id="pickBlk">
+    <h2>2. 対象の施設をえらぶ</h2>
+    <label class="f"><span>名前にふくまれる言葉</span>
+      <input type="text" id="kw" value="警察署"></label>
+    <p class="hint">この言葉が名前に入っている施設を拾います。下の一覧でチェックを外せば、その施設は変更しません。</p>
+    <div id="hits"></div>
+    <div class="count" id="cnt"></div>
+    <div class="bar">
+      <button id="btnAll">すべて選ぶ</button>
+      <button id="btnNone">すべて外す</button>
+    </div>
+  </section>
+
+  <!-- ③ 期間 -->
+  <section class="blk hide" id="dateBlk">
+    <h2>3. 契約期間を入れる</h2>
+    <div class="f-row">
+      <label class="f"><span>開始日</span>
+        <input type="date" id="dStart" value="2025-12-01"></label>
+      <label class="f"><span>終了日</span>
+        <input type="date" id="dEnd" value="2028-11-30"></label>
+    </div>
+    <p class="hint">いまの初期値は 令和7年12月1日 〜 令和10年11月30日 です。</p>
+  </section>
+
+  <!-- ④ 書き込む -->
+  <section class="blk hide" id="saveBlk">
+    <h2>4. 書き込む</h2>
+    <button id="btnBackup">いまの内容を控えとして保存する</button>
+    <p class="hint">先に控えを保存しておくと、もし違っていても元にもどせます。</p>
+    <div class="bar" style="margin-top:14px">
+      <button class="go" id="btnSave">えらんだ施設に書き込む</button>
+    </div>
+    <div id="saveMsg"></div>
+  </section>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword }
+  from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc }
+  from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { firebaseConfig, ID_DOMAIN } from "./firebase-config.js";
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+const $ = function(id){ return document.getElementById(id); };
+let SITES = [];          /* config/sites の list をそのまま持つ */
+let PICKED = {};         /* id => true/false */
+
+function esc(s){
+  return String(s==null?"":s).replace(/[&<>"]/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];
+  });
+}
+function jpDate(d){
+  if(!d) return "";
+  const p = String(d).split("-");
+  if(p.length < 3) return d;
+  return Number(p[0])+"年"+Number(p[1])+"月"+Number(p[2])+"日";
+}
+function periodText(s){
+  if(!s.start && !s.end) return "期間の登録なし";
+  return (s.start ? jpDate(s.start) : "（開始日なし）") + " 〜 " +
+         (s.end   ? jpDate(s.end)   : "（終了日なし）");
+}
+function msg(el, text, kind){
+  el.innerHTML = text ? '<div class="msg '+kind+'">'+esc(text)+'</div>' : "";
+}
+
+/* ---------- ログイン ---------- */
+$("btnLogin").addEventListener("click", async function(){
+  const id  = $("lid").value.trim().toLowerCase();
+  const pin = $("lpin").value;
+  if(!id || !pin){ msg($("loginMsg"), "IDと暗証番号を入れてください。", "err"); return; }
+  this.disabled = true;
+  msg($("loginMsg"), "", "");
+  try{
+    await signInWithEmailAndPassword(auth, id+"@"+ID_DOMAIN, pin);
+    const snap = await getDoc(doc(db, "config", "sites"));
+    SITES = (snap.exists() && Array.isArray(snap.data().list)) ? snap.data().list : [];
+    if(!SITES.length){
+      msg($("loginMsg"), "契約先の一覧が読み込めませんでした。管理者のIDでログインしてください。", "err");
+      this.disabled = false; return;
+    }
+    $("loginBlk").classList.add("hide");
+    $("pickBlk").classList.remove("hide");
+    $("dateBlk").classList.remove("hide");
+    $("saveBlk").classList.remove("hide");
+    renderHits();
+  }catch(e){
+    msg($("loginMsg"), "ログインできませんでした（"+(e.code||e.message||"")+"）", "err");
+    this.disabled = false;
+  }
+});
+
+/* ---------- しぼりこみ ---------- */
+function matched(){
+  const kw = $("kw").value.trim();
+  if(!kw) return [];
+  return SITES.filter(function(s){ return String(s.name||"").indexOf(kw) >= 0; });
+}
+function renderHits(){
+  const list = matched();
+  list.forEach(function(s){ if(PICKED[s.id] === undefined) PICKED[s.id] = true; });
+  if(!list.length){
+    $("hits").innerHTML = '<p class="hint">あてはまる施設がありませんでした。言葉を変えてみてください。</p>';
+    $("cnt").textContent = "";
+    return;
+  }
+  $("hits").innerHTML = '<ul class="hits">' + list.map(function(s){
+    return '<li><input type="checkbox" data-id="'+esc(s.id)+'"'+(PICKED[s.id]?" checked":"")+'>'+
+      '<div><div class="nm">'+esc(s.name)+'</div>'+
+      '<div class="pd">いま：'+esc(periodText(s))+'</div></div></li>';
+  }).join("") + '</ul>';
+  updateCount();
+}
+function updateCount(){
+  const n = matched().filter(function(s){ return PICKED[s.id]; }).length;
+  $("cnt").textContent = "全 "+SITES.length+" 施設のうち、"+n+" 施設に書き込みます。";
+}
+$("kw").addEventListener("input", renderHits);
+$("hits").addEventListener("change", function(ev){
+  const cb = ev.target;
+  if(cb && cb.dataset && cb.dataset.id){ PICKED[cb.dataset.id] = cb.checked; updateCount(); }
+});
+$("btnAll").addEventListener("click", function(){
+  matched().forEach(function(s){ PICKED[s.id] = true; }); renderHits();
+});
+$("btnNone").addEventListener("click", function(){
+  matched().forEach(function(s){ PICKED[s.id] = false; }); renderHits();
+});
+
+/* ---------- 控えの保存 ---------- */
+$("btnBackup").addEventListener("click", function(){
+  const blob = new Blob([JSON.stringify({list:SITES}, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "sites-backup-" + new Date().toISOString().slice(0,10) + ".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+/* ---------- 書き込み ---------- */
+$("btnSave").addEventListener("click", async function(){
+  const start = $("dStart").value, end = $("dEnd").value;
+  if(!start || !end){ msg($("saveMsg"), "開始日と終了日を入れてください。", "err"); return; }
+  if(end < start){ msg($("saveMsg"), "終了日が開始日より前になっています。", "err"); return; }
+
+  const targets = matched().filter(function(s){ return PICKED[s.id]; });
+  if(!targets.length){ msg($("saveMsg"), "施設が選ばれていません。", "err"); return; }
+
+  const names = {};
+  targets.forEach(function(s){ names[s.id] = true; });
+  if(!confirm(targets.length + " 施設の契約期間を\n" +
+      jpDate(start) + " 〜 " + jpDate(end) + "\nに書きかえます。よろしいですか？")) return;
+
+  this.disabled = true;
+  msg($("saveMsg"), "書き込んでいます…", "ok");
+  const next = SITES.map(function(s){
+    if(!names[s.id]) return s;
+    const c = Object.assign({}, s);
+    c.start = start; c.end = end;
+    return c;
+  });
+  try{
+    await setDoc(doc(db, "config", "sites"), {list: next});
+    SITES = next;
+    renderHits();
+    msg($("saveMsg"), targets.length + " 施設に書き込みました。アシストカレンダーの「契約先」を開くと反映されています。", "ok");
+  }catch(e){
+    msg($("saveMsg"), "書き込めませんでした（"+(e.code||e.message||"")+"）", "err");
+  }
+  this.disabled = false;
+});
+</script>
+</body>
+</html>
