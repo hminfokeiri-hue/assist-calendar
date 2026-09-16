@@ -760,7 +760,16 @@ import { getFirestore, doc, collection, query, where, getDoc, getDocs, setDoc, d
 import { firebaseConfig, ID_DOMAIN } from "./firebase-config.js";
 import { IMP } from "./import-parser.js";
 
-const fbApp = initializeApp(firebaseConfig);
+/* ---------- 社長用（見るだけ）----------
+   社長用の入口（assist-roumu/shacho.html）から ?view=shacho 付きで開いたときだけ、
+   カードの合言葉で自動ログインし、見るだけの画面になります。
+   ログインの記録は "shacho" という別の入れ物に分けるので、同じスマホで
+   管理者や協力者がログインしていても、おたがいに影響しません。 */
+const SHACHO = new URLSearchParams(location.search).get("view")==="shacho";
+const SHACHO_EMAIL = "shacho@"+ID_DOMAIN;
+const SHACHO_HOME = "https://hminfokeiri-hue.github.io/assist-roumu/shacho.html";
+function shachoKey(){ try{ return localStorage.getItem("assistShachoKey")||""; }catch(e){ return ""; } }
+const fbApp = SHACHO ? initializeApp(firebaseConfig, "shacho") : initializeApp(firebaseConfig);
 const auth  = getAuth(fbApp);
 const db    = getFirestore(fbApp);
 enableIndexedDbPersistence(db).catch(function(){ /* 複数タブ時などは無視 */ });
@@ -884,7 +893,30 @@ function sortMembers(){
   });
 }
 function meId(){ return S.session&&S.session.memberId?S.session.memberId:null; }
-function isAdmin(){ return S.session&&S.session.role==="admin"; }
+/* 社長用（viewer）は、読むときは管理者と同じ範囲を見ます。書きかえは下の VIEW_OK で止めます */
+function isAdmin(){ return S.session&&(S.session.role==="admin"||S.session.role==="viewer"); }
+function isViewer(){ return !!(S.session&&S.session.role==="viewer"); }
+/* 見るだけ用で押してよいボタン（これ以外は表示しない・押しても何もしない） */
+var VIEW_OK=["noop","logout","refresh","tab","cal-rich","mates","pnames","print-layout","find-clear",
+  "mpick","pick-y","pick-m","mon","day","site","member-view","cfil","mday","mmon","mprint",
+  "hist-load","hist-close","hist-day","close","close-bg","fy","print","print-for","print-close","print-go"];
+var VIEW_FIELDS=["findQ","siteQuery","annMonth","siteGroup"];
+function lockView(root){
+  root.querySelectorAll("[data-act]").forEach(function(b){
+    if(VIEW_OK.indexOf(b.getAttribute("data-act"))>=0) return;
+    var tag=b.tagName;
+    if(tag==="TD"||tag==="TR"||b.classList.contains("mchip")||b.classList.contains("gcell")){
+      /* 表の升や月の印は、見た目を残して押せないだけにする */
+      b.removeAttribute("data-act"); b.classList.remove("tap");
+      b.style.pointerEvents="none"; b.style.cursor="default";
+    }else{
+      b.style.display="none";
+    }
+  });
+  root.querySelectorAll("input,textarea,select").forEach(function(f){
+    if(VIEW_FIELDS.indexOf(f.getAttribute("data-field"))<0 && f.id!=="impFile") f.disabled=true;
+  });
+}
 function siteById(id){ return (S.config.sites||[]).find(function(s){return s.id===id;}); }
 function annualOf(fy){ return S.annualByFy[fy===undefined?S.fy:fy]||{}; }
 function plansOf(id,fy){ return annualOf(fy)[id]||[]; }
@@ -913,6 +945,15 @@ onAuthStateChanged(auth, async function(user){
   if(S.addingMember) return;   /* メンバー追加のあいだは、いったん切り替わるだけなので無視する */
   unsubAll();
   if(!user){
+    if(SHACHO && !S.shachoTried){
+      S.shachoTried=true;
+      if(shachoKey()){
+        try{ await signInWithEmailAndPassword(auth, SHACHO_EMAIL, shachoKey()); return; }
+        catch(e){ S.err="社長用カードで入れませんでした。もういちど、カードのQRコードを読んでください。"; }
+      }else{
+        S.err="社長用カードのQRコードから開いてください。";
+      }
+    }
     S.session=null; S.authed=false; S.booting=false; S.loginBusy=false;
     S.config={members:[],sites:[],services:[],showAnnualToMembers:true,memberOrder:[]};
     S.annualByFy={}; S.month=emptyMonth(); NAMES={};
@@ -925,7 +966,8 @@ onAuthStateChanged(auth, async function(user){
       await signOut(auth); return;
     }
     var me=meDoc.data();
-    S.session = me.role==="admin" ? {role:"admin"} : {role:"member", memberId:me.memberId};
+    if(SHACHO && me.role!=="viewer"){ S.err="社長用カードで入れませんでした。"; await signOut(auth); return; }
+    S.session = me.role==="admin" ? {role:"admin"} : me.role==="viewer" ? {role:"viewer"} : {role:"member", memberId:me.memberId};
     S.authed=true; S.booting=false; S.loginBusy=false; S.loginId=""; S.memberPin="";
     var now=ymOf(new Date());
     S.ym = now<"2026-04" ? "2026-04" : now;
@@ -948,6 +990,19 @@ var subs={config:[], month:[], annual:[]};
 function unsub(kind){ (subs[kind]||[]).forEach(function(f){ try{f();}catch(e){} }); subs[kind]=[]; }
 function unsubAll(){ Object.keys(subs).forEach(unsub); }
 
+/* 社長用に「名前だけの名簿」を config/roster へ写す（管理者が開いたときに自動で更新） */
+var _rosterSent="";
+function syncRoster(list){
+  try{
+    var slim=list.map(function(m){ return {id:m.id, name:m.name||"", loginId:m.loginId||"", active:m.active!==false}; })
+      .sort(function(a,b){ return String(a.id).localeCompare(String(b.id)); });
+    var js=JSON.stringify(slim);
+    if(js===_rosterSent) return;
+    _rosterSent=js;
+    setDoc(doc(db,"config","roster"), {list:slim}).catch(function(){ _rosterSent=""; });
+  }catch(e){}
+}
+
 function subscribeConfig(){
   unsub("config");
   subs.config.push(onSnapshot(doc(db,"config","app"), function(d){
@@ -962,10 +1017,17 @@ function subscribeConfig(){
     S.config.sites=(d.data()||{}).list||[]; render();
   }, function(){ /* 協力者に非公開の設定なら読めない＝空でよい */ }));
 
-  if(isAdmin()){
+  if(isViewer()){
+    /* 社長用は名簿（暗証番号の控えが入っている）を読まず、名前だけの一覧を読む */
+    subs.config.push(onSnapshot(doc(db,"config","roster"), function(d){
+      S.config.members=((d.data()||{}).list||[]).map(function(x){ return Object.assign({},x); });
+      sortMembers(); render();
+    }, err));
+  }else if(isAdmin()){
     subs.config.push(onSnapshot(collection(db,"members"), function(snap){
       var list=[]; snap.forEach(function(d){ list.push(Object.assign({id:d.id}, d.data())); });
       S.config.members=list; sortMembers(); render();
+      syncRoster(list);
     }, err));
   }else{
     subs.config.push(onSnapshot(doc(db,"members",meId()), function(d){
@@ -1127,6 +1189,7 @@ function render(){
   }catch(e){}
 
   el.innerHTML = (S.authed && S.session) ? viewApp() : viewLogin();
+  if(S.authed && isViewer()) lockView(el);
   /* iOS Safari 対策：指でスクロール中に window.scrollTo が走るとスクロールが
      取り消されてしまう。位置を本当に変える必要があるときだけ動かす。
      ・タブ切替や明示指定（toTop）→ いちばん上へ
@@ -1163,6 +1226,12 @@ function render(){
 }
 
 function viewLogin(){
+  if(SHACHO){
+    return '<div class="login"><div class="login-head"><div class="stamp-mark"></div>'+
+      '<h1>アシストカレンダー</h1><p class="sub">社長用（見るだけ）</p></div>'+
+      '<p class="err" style="text-align:center">'+esc(S.err||"読み込み中…")+'</p>'+
+      '<p class="foot-note"><a href="'+SHACHO_HOME+'">社長用の入口にもどる</a></p></div>';
+  }
   return '<div class="login"><div class="login-head"><div class="stamp-mark"></div>'+
     '<h1>アシストカレンダー</h1><p class="sub">定期清掃　作業予定表</p></div>'+
     (S.err?'<p class="err" style="text-align:center">'+esc(S.err)+'</p>':'')+
@@ -1180,7 +1249,7 @@ function viewLogin(){
 
 function viewApp(){
   var adm=isAdmin();
-  var who=adm?"管理者":(memberName(S.session.memberId)||"協力者");
+  var who=isViewer()?"社長（見るだけ）":adm?"管理者":(memberName(S.session.memberId)||"協力者");
   var sync=S.syncedAt?pad(S.syncedAt.getHours())+":"+pad(S.syncedAt.getMinutes())+" 更新":"";
   var h='<header class="hd"><div><div class="hd-title">アシストカレンダー</div>'+
     '<div class="hd-who'+(adm?" adm":"")+'">'+esc(who)+'</div></div><div class="hd-r">'+
@@ -1188,7 +1257,9 @@ function viewApp(){
     '<span class="synced">'+sync+'</span><button class="icon-btn" data-act="logout">⏻</button></div></header>';
 
 
-  var tabs = adm
+  var tabs = isViewer()
+    ? [["list","予定"],["grid","配置表"],["annual","年間予定"],["sites","契約先"]]
+    : adm
     ? [["list","予定"],["grid","配置表"],["annual","年間予定"],["sites","契約先"],["import","取込"],["team","メンバー"]]
     : [["home","出欠カレンダー"],["list","予定リスト"]].concat(canSeeAnnual()?[["annual","年間予定"]]:[]);
   h+='<nav class="tabs">'+tabs.map(function(t){
@@ -3139,6 +3210,11 @@ document.addEventListener("click", async function(ev){
   var t=ev.target.closest("[data-act]"); if(!t) return;
   var act=t.getAttribute("data-act"), v=t.getAttribute("data-v"), id=t.getAttribute("data-id");
   if(act==="close-bg" && ev.target!==t) return;
+  if(isViewer()){
+    if(act==="logout"){ location.href=SHACHO_HOME; return; }
+    if(VIEW_OK.indexOf(act)<0){ flash("見るだけ用なので、変更はできません"); return; }
+    if(act==="tab" && ["import","team"].indexOf(v)>=0) return;
+  }
 
   switch(act){
     case "noop": break;
@@ -3488,6 +3564,7 @@ document.addEventListener("click", async function(ev){
 /* 入力は再描画せずに控える（打っている途中で消えないように） */
 document.addEventListener("input", function(ev){
   var f=ev.target.getAttribute&&ev.target.getAttribute("data-field"); if(!f) return;
+  if(isViewer() && VIEW_FIELDS.indexOf(f)<0) return;
   var val=ev.target.value;
   if(f==="loginId"){ S.loginId=val; S.loginErr=""; }
   else if(f==="memberPin"){ S.memberPin=val; S.loginErr=""; }
