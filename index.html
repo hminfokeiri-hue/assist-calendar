@@ -774,6 +774,16 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .cti-st.upd{background:#EAF2FA; color:#2B6CB0}
 .cti-st.same{background:#EDF1F0; color:var(--ink2)}
 .cti-st.skip{background:#FDEEE0; color:#8A4508}
+/* FAX送付状 */
+.pdf-btn.fax{background:var(--card); color:var(--ink); border:2px solid var(--ink); margin-top:-6px}
+.fxset{background:var(--card); margin:12px auto; max-width:760px; border-radius:12px; padding:12px 14px;
+  width:calc(100% - 24px)}
+.fxset .f{margin-top:8px}
+.fxset .sheetlist{margin-top:10px}
+.fxwarn{max-width:760px; margin:12px auto 6px; width:calc(100% - 24px); background:#FDEEE0; color:#8A4508;
+  border-radius:9px; padding:8px 12px; font-size:12px; font-weight:700}
+.pv .faxp{width:calc(100% - 24px)}
+.pv-bar button[disabled]{opacity:.45}
 </style>
 </head>
 <body>
@@ -895,7 +905,7 @@ var S={
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
   fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
   imp:null, impBusy:false, impMsg:"", calRich:true, showMates:true, printNames:true, printLayout:"grid", hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false, cFilter:"active", sortMode:false,
-  contacts:{}, ctEdit:null, ctErr:"", ctBusy:false, cti:null, ctiBusy:false, ctiMsg:""
+  contacts:{}, ctEdit:null, ctErr:"", ctBusy:false, cti:null, ctiBusy:false, ctiMsg:"", fax:null
 };
 var _lastTab=null;
 var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
@@ -1323,6 +1333,7 @@ function viewApp(){
     '<div class="sheet-body">'+siteEditor()+'</div></div></div>';
   if(S.viewMember) h+=memberSheet();
   if(S.printing) h+=viewPrint();
+  if(S.fax) h+=viewFax();
   if(S.toast) h+='<div class="toast">'+esc(S.toast)+'</div>';
   return h;
 }
@@ -1483,6 +1494,7 @@ function viewList(){
     ? gridShort()
     : (me?'<span class="pill okp">自分の予定</span>':""));
   h+='<button class="pdf-btn" data-act="print">'+(adm?"予定表を作る（PDF）":"予定を確認する（PDF）")+'</button>';
+  if(adm && !isViewer()) h+='<button class="pdf-btn fax" data-act="fax-open">FAX送付状をまとめて作る（この月）</button>';
   if(adm){
     h+=siteFinder();
     h+='<div class="calbar"><button class="pill toggle'+(S.calRich?" on":"")+'" data-act="cal-rich">'+
@@ -2174,6 +2186,7 @@ function siteEditor(){
    ・1施設ずつ「なおす」から直せるほか、取込タブで表からまとめて入れられる。
    ============================================================ */
 var CT_FIELDS=[
+  ["atena","送付状の宛名","例：大阪府浪速警察署（空欄なら施設名を使います）"],
   ["dept","部署・担当者","例：会計課　浅井 様"],
   ["tel","TEL","例：06-6633-1234"],
   ["fax","FAX","例：06-6645-5862"],
@@ -2283,13 +2296,15 @@ function contactBlock(s){
   }else{
     var adr=(c.zip?"〒"+zipText(c.zip)+" ":"")+(c.address||"");
     h+='<dl class="ctdl">'+
+      ctRow("送付状の宛名", esc(c.atena))+
       ctRow("部署・担当者", esc(c.dept))+
       ctRow("TEL", c.tel?'<a href="'+esc(telHref(c.tel))+'">'+esc(c.tel)+'</a><small>おすと電話をかけられます（スマホ）</small>':"")+
       ctRow("FAX", esc(c.fax))+
       ctRow("住所", esc(adr.trim()))+
       ctRow("メモ", esc(c.note))+
     '</dl>'+
-    (c.updatedAt?'<p class="hint">最終更新：'+esc(jpDateTime(c.updatedAt))+'</p>':'');
+    (c.updatedAt?'<p class="hint">最終更新：'+esc(jpDateTime(c.updatedAt))+'</p>':'')+
+    (isViewer()?'':'<button class="se-edit" style="margin:10px 0 0" data-act="fax-site" data-id="'+s.id+'">この施設のFAX送付状を作る</button>');
   }
   h+='<p class="hint">この連絡先は管理者の画面にだけ出ます。協力会社さんには見えません。</p>';
   return h+'</section>';
@@ -2336,6 +2351,7 @@ function ctiParse(grid){
   function col(test){ for(var i=0;i<head.length;i++) if(head[i] && test(head[i])) return i; return -1; }
   var C={
     name: head.indexOf("宛名")>=0 ? head.indexOf("宛名") : head.indexOf("施設名"),
+    atena: head.indexOf("宛名"),
     alt1: col(function(h){ return h==="管理番号"; }),
     alt2: col(function(h){ return h==="会社名"; }),
     dept: col(function(h){ return h.indexOf("担当")>=0; }),
@@ -2366,7 +2382,8 @@ function ctiParse(grid){
       fax:  C.fax>=0?ctiPhone(g[C.fax]):"",
       zip:  C.zip>=0?ctiZip(g[C.zip]):"",
       address: parts.join(" "),
-      note: C.note>=0?ctiClean(g[C.note]):""
+      note: C.note>=0?ctiClean(g[C.note]):"",
+      atena: C.atena>=0?ctiClean(g[C.atena]):""
     });
   }
   return out.length ? out : null;
@@ -2400,13 +2417,19 @@ async function ctiLoad(file){
   }
 }
 
-/* 取り込んだあとの連絡先。表に書いてあるところだけ上書きし、空欄のところは今の内容を残す */
+/* 取り込んだあとの連絡先。表に書いてあるところだけ上書きし、空欄のところは今の内容を残す。
+   「今の登録を優先」のときは、アプリで空欄のところだけを表で埋める（アプリで直した内容は変えない） */
 function ctiMerged(r){
-  var old=contactOf(r.pick)||{}, rec={}, changed=0;
+  var old=contactOf(r.pick)||{}, rec={}, changed=0, fill=!!(S.cti && S.cti.fillOnly);
   CT_FIELDS.forEach(function(f){
     var k=f[0], nv=String(r[k]||"").trim(), ov=String(old[k]||"").trim();
-    rec[k]= nv ? nv : ov;
-    if(nv && nv!==ov) changed++;
+    if(fill){
+      rec[k]= ov ? ov : nv;
+      if(!ov && nv) changed++;
+    }else{
+      rec[k]= nv ? nv : ov;
+      if(nv && nv!==ov) changed++;
+    }
   });
   return {rec:rec, changed:changed, isNew:!hasContact(old)};
 }
@@ -2466,7 +2489,13 @@ function ctiView(){
       (c.all-c.auto?'<span class="warn">一致しない '+(c.all-c.auto)+'</span>':'')+'</div>'+
     '<p class="hint">「入れる先」は名前から自動でえらんでいます（←自動）。ちがうときや、えらばれていないときは、'+
     'ここでえらび直してください。「（入れない）」の行は取り込みません。<br>'+
-    '表に書いてある項目だけ上書きします。表が空欄のところ（電話番号など）は、今の登録をそのまま残します。</p>'+
+    (T.fillOnly
+      ? 'いまは「今の登録を優先」です。アプリで空欄になっているところだけを、表の内容で埋めます（アプリで直した内容はそのまま）。</p>'
+      : '表に書いてある項目だけ上書きします。表が空欄のところ（電話番号など）は、今の登録をそのまま残します。</p>')+
+    '<div class="pchips" style="padding:0;margin:0 0 10px">'+
+      '<button class="pill toggle'+(T.fillOnly?"":" on")+'" data-act="cti-fill" data-v="0">表の内容で上書き</button>'+
+      '<button class="pill toggle'+(T.fillOnly?" on":"")+'" data-act="cti-fill" data-v="1">今の登録を優先（空欄だけ埋める）</button>'+
+    '</div>'+
     '<div id="ctiRes">'+ctiTable()+'</div>'+
     '<div class="impbar"><button class="ghost" data-act="cti-cancel">やめる</button>'+
       '<button class="primary" data-act="cti-run"'+(S.ctiBusy||!c.go?" disabled":"")+'>'+
@@ -2499,6 +2528,284 @@ async function ctiRun(){
       : "取り込めませんでした（"+((x&&(x.code||x.message))||"")+"）";
     render();
   }
+}
+
+/* ============================================================
+   FAX送付状（「大阪府警_封筒FAXテンプレート」の FAX送付状 と同じ形）
+   ・施設の連絡先（宛名・担当者・FAX番号）と、予定（実施日・開始時間）から自動で作る
+   ・開く場所は3つ：日の画面の現場ごと／施設の画面／予定タブの「この月をまとめて」
+   ・用紙の上の文字は、印刷の前にその場で直せる
+   ============================================================ */
+var FAX_SENDERS={
+  kitaura:{label:"北浦（業務責任者）", line:"本社　業務責任者　北浦 裕太", intro:"株式会社ホームメンテナンスの北浦でございます。"},
+  bito:   {label:"尾藤（経理部）",     line:"本社　経理部　　尾藤 七恵",   intro:"株式会社ホームメンテナンスの尾藤と申します。"}
+};
+var FAX_CSS=[
+".faxp{background:#fff;color:#111;box-sizing:border-box;margin:0 auto 14px;width:100%;max-width:760px;aspect-ratio:210/297;",
+"  padding:5.5% 6.5%;overflow:hidden;line-height:1.5;border-radius:4px;box-shadow:0 4px 18px rgba(0,0,0,.2);",
+"  font-size:calc(min(100vw - 28px, 760px) * 0.0185);",
+"  font-family:'ＭＳ Ｐ明朝','MS PMincho','游明朝','Yu Mincho','Hiragino Mincho ProN','Noto Serif JP',serif}",
+".faxp-in{outline:none;min-height:100%}",
+".fx-date{text-align:right;margin-bottom:.4em}",
+".fx-title{background:#BDBDBD;color:#fff;text-align:center;font-size:2.2em;letter-spacing:.35em;padding:.45em 0 .4em;",
+"  font-family:'ＭＳ Ｐゴシック','MS PGothic','游ゴシック','Yu Gothic','Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;",
+"  -webkit-print-color-adjust:exact;print-color-adjust:exact}",
+".fx-head{display:flex;justify-content:space-between;align-items:flex-start;margin-top:1.6em}",
+".fx-to{width:57%}",
+".fx-to1{border-bottom:1px solid #222;padding:0 0 .15em;min-height:1.6em}",
+".fx-to2{border-bottom:1px solid #222;padding:.15em 0 .15em 1em;min-height:1.6em}",
+".fx-to3{padding:.15em 0 0 1em;min-height:1.6em}",
+".fx-from{width:37%;margin-top:2.4em;line-height:1.75;white-space:nowrap}",
+".fx-from .s8{font-size:.75em}.fx-from .s12{font-size:1.1em}.fx-from .s10{font-size:.92em}",
+".fx-greet{margin-top:4em}",
+".fx-count{width:42%;text-align:center;border-bottom:1px solid #222;margin-top:1.4em;padding-bottom:.1em}",
+".fx-sec{margin-top:2.4em}",
+".fx-docs{width:92%;margin:1.2em 0 0 6%;border-collapse:collapse}",
+".fx-docs th,.fx-docs td{border:1px solid #222;height:2.25em;font-weight:400;padding:0 .5em}",
+".fx-docs th{text-align:center}",
+".fx-docs td.n{width:1.6em;border-right:none;text-align:center;padding:0}",
+".fx-docs td.n+td{border-left:none}",
+".fx-docs .c{width:13%;text-align:center}",
+".fx-lines{width:92%;margin:1.4em 0 0 6%}",
+".fx-lines div{border-bottom:1px dashed #333;min-height:1.65em;line-height:1.65em;overflow-wrap:anywhere}"
+].join("\n");
+(function(){ try{ var st=document.createElement("style"); st.textContent=FAX_CSS; document.head.appendChild(st); }catch(e){} })();
+
+/* 送付状の宛名。連絡先に「送付状の宛名」があればそれを使い、なければ施設名から作る */
+function faxAtena(site, c){
+  if(c && String(c.atena||"").trim()) return String(c.atena).trim();
+  var n=site ? String(site.name||"") : "";
+  if(site && site.group==="府" && /警察署$/.test(n) && n.indexOf("大阪府")!==0) n="大阪府"+n;
+  return n;
+}
+function faxDay(d){ var x=parseYmd(d); return (x.getMonth()+1)+"月"+x.getDate()+"日（"+WD[x.getDay()]+"）"; }
+function uniqDates(jobs){
+  var ds=[]; (jobs||[]).forEach(function(j){ if(ds.indexOf(j.date)<0) ds.push(j.date); });
+  return ds.sort();
+}
+/* 実施日の書き方：1日なら「10月3日（土）」、つづいていれば「8月17日（月）～8月22日（土）」 */
+function faxDates(jobs){
+  var ds=uniqDates(jobs);
+  if(!ds.length) return "";
+  if(ds.length===1) return faxDay(ds[0]);
+  var run=ds.every(function(d,i){ return i===0 || dayDiff(d, ds[i-1])===1; });
+  return run ? faxDay(ds[0])+"～"+faxDay(ds[ds.length-1]) : ds.map(faxDay).join("・");
+}
+/* 開始時間の書き方：10:00 → 10時、9:30 → 9時30分 */
+function faxTime(t){
+  var m=String(t||"").normalize("NFKC").match(/(\d{1,2}):(\d{2})/);
+  if(!m) return "";
+  return Number(m[1])+"時"+(m[2]==="00"?"":Number(m[2])+"分");
+}
+/* 並べかえ用に、開始時間を「09:00」の形にそろえる（9:00 が 10:00 より後にならないように） */
+function tkey(t){
+  var m=String(t||"").normalize("NFKC").match(/(\d{1,2}):(\d{2})/);
+  return m ? pad(Number(m[1]))+":"+m[2] : "99:99";
+}
+/* この月の予定を、契約先ごとに分ける */
+function monthJobsBySite(){
+  var by={}, miss={};
+  Object.keys(S.month.jobs||{}).sort().forEach(function(d){
+    (S.month.jobs[d]||[]).forEach(function(j){
+      var sid=siteIdForJob(j.site);
+      if(!sid){ miss[j.site]=1; return; }
+      (by[sid]=by[sid]||[]).push(j);
+    });
+  });
+  Object.keys(by).forEach(function(k){
+    by[k].sort(function(a,b){ return (a.date+tkey(a.start)).localeCompare(b.date+tkey(b.start)); });
+  });
+  return {by:by, miss:Object.keys(miss)};
+}
+/* 同じ施設で日がつづいている予定（警察学校の6日間など）は、1枚にまとめる */
+function faxBlocks(jobs){
+  var ds=uniqDates(jobs), blocks=[], cur=[];
+  ds.forEach(function(d,i){
+    if(i>0 && dayDiff(d, ds[i-1])!==1){ blocks.push(cur); cur=[]; }
+    cur.push(d);
+  });
+  if(cur.length) blocks.push(cur);
+  return blocks.map(function(b){ return jobs.filter(function(j){ return b.indexOf(j.date)>=0; }); });
+}
+function faxBase(mode){
+  return {mode:mode, sender:"kitaura", doc:"業務作業員名簿", copies:"1", pages:"2",
+          sendDate:ymd(new Date()), range:"future", groups:[], miss:[], edit:{}};
+}
+function faxBuild(F){
+  var M=monthJobsBySite(), today=ymd(new Date()), out=[];
+  Object.keys(M.by).forEach(function(sid){
+    faxBlocks(M.by[sid]).forEach(function(js){
+      if(F.range==="future" && js[js.length-1].date<today) return;
+      var c=contactOf(sid);
+      out.push({key:sid+"|"+js[0].date, siteId:sid, jobs:js, on:!!(c && c.fax)});
+    });
+  });
+  out.sort(function(a,b){
+    return (a.jobs[0].date+tkey(a.jobs[0].start)).localeCompare(b.jobs[0].date+tkey(b.jobs[0].start));
+  });
+  F.groups=out; F.miss=M.miss;
+}
+function faxOpenBatch(){
+  var F=faxBase("batch"); faxBuild(F);
+  S.fax=F; S.scrollTop=true; render();
+}
+function faxOpenJob(jobId){
+  var j=null;
+  Object.keys(S.month.jobs||{}).forEach(function(d){
+    (S.month.jobs[d]||[]).forEach(function(x){ if(x.id===jobId) j=x; });
+  });
+  if(!j) return;
+  var sid=siteIdForJob(j.site); if(!sid) return;
+  var blk=[j];
+  faxBlocks(monthJobsBySite().by[sid]||[j]).forEach(function(b){
+    if(b.some(function(x){ return x.id===jobId; })) blk=b;
+  });
+  var F=faxBase("single");
+  F.groups=[{key:sid+"|"+blk[0].date, siteId:sid, jobs:blk, on:true}];
+  S.fax=F; render();
+}
+function faxOpenSite(sid){
+  var today=ymd(new Date()), pick=null;
+  var blocks=faxBlocks(monthJobsBySite().by[sid]||[]);
+  blocks.forEach(function(b){ if(!pick && b[b.length-1].date>=today) pick=b; });
+  if(!pick && blocks.length) pick=blocks[0];
+  var F=faxBase("single");
+  F.groups=[{key:sid+"|"+(pick?pick[0].date:"-"), siteId:sid, jobs:pick||[], on:true}];
+  S.fax=F; render();
+}
+
+/* 1枚ぶんの中身 */
+function faxPageHtml(g, F){
+  var site=siteById(g.siteId)||{name:""}, c=contactOf(g.siteId)||{};
+  var snd=FAX_SENDERS[F.sender]||FAX_SENDERS.kitaura;
+  var dt=faxDates(g.jobs), first=g.jobs[0], tm=first?faxTime(first.start):"";
+  var multi=uniqDates(g.jobs).length>1;
+  var lines=[
+    "いつも大変お世話になっております。",
+    snd.intro,
+    (dt||"　　月　　日（　）")+"に定期清掃を実施いたしますので、作業員名簿を提出いたします。",
+    tm ? (multi?"初日は":"当日は")+tm+"から作業を開始いたします。" : "",
+    "お手数をおかけいたしますが、ご確認のほどよろしくお願いいたします。"
+  ].filter(function(x){ return x!==""; });
+  while(lines.length<7) lines.push("");
+  var sd=parseYmd(F.sendDate||ymd(new Date()));
+  var sdt=isNaN(sd) ? "" : sd.getFullYear()+"年"+(sd.getMonth()+1)+"月"+sd.getDate()+"日";
+  return '<div class="fx-date">送信日：'+esc(sdt)+'</div>'+
+    '<div class="fx-title">ＦＡＸ送付状</div>'+
+    '<div class="fx-head"><div class="fx-to">'+
+      '<div class="fx-to1">'+esc(faxAtena(site,c))+'</div>'+
+      '<div class="fx-to2">'+(c.dept?esc(c.dept):'&nbsp;')+'</div>'+
+      '<div class="fx-to3">'+(c.fax?'（'+esc(c.fax)+'）':'&nbsp;')+'</div></div>'+
+    '<div class="fx-from"><div class="s8">大阪市女性活躍リーディングカンパニー</div>'+
+      '<div class="s12">株式会社ホームメンテナンス</div>'+
+      '<div class="s10">大阪市阿倍野区昭和町2-12-10-201</div>'+
+      '<div class="s10">'+esc(snd.line)+'</div>'+
+      '<div>TEL ： 06-6654-7812</div><div>FAX ： 06-6654-7813</div></div></div>'+
+    '<div class="fx-greet">いつもお世話になっております。<br>'+
+      '以下のとおりFAXを送付いたしますので、ご査収のほどお願い申し上げます。</div>'+
+    '<div class="fx-count">送信枚数：　'+esc(F.pages)+'　枚（本状含む）</div>'+
+    '<div class="fx-sec">■　送付書類</div>'+
+    '<table class="fx-docs"><tr><th colspan="2">送付書類</th><th class="c">部数</th></tr>'+
+      '<tr><td class="n">1</td><td>'+esc(F.doc)+'</td><td class="c">'+(F.copies?esc(F.copies)+'枚':'')+'</td></tr>'+
+      '<tr><td class="n"></td><td></td><td class="c"></td></tr>'+
+      '<tr><td class="n"></td><td></td><td class="c"></td></tr></table>'+
+    '<div class="fx-sec">■　連絡事項</div>'+
+    '<div class="fx-lines">'+lines.map(function(l){ return '<div>'+(l?esc(l):'&nbsp;')+'</div>'; }).join("")+'</div>';
+}
+
+function viewFax(){
+  var F=S.fax, batch=(F.mode==="batch");
+  var on=F.groups.filter(function(g){ return g.on; });
+  var h='<div class="pv"><div class="pv-bar">'+
+      '<button data-act="fax-close">とじる</button>'+
+      '<button class="go" data-act="fax-go"'+(on.length?'':' disabled')+'>印刷／PDF（'+on.length+'枚）</button></div>'+
+    '<div class="pv-pick">'+
+      '<div class="pchips pv-lbl"><span class="pv-tag">差出人</span>'+
+        Object.keys(FAX_SENDERS).map(function(k){
+          return '<button class="pchip'+(F.sender===k?" on":"")+'" data-act="fax-sender" data-v="'+k+'">'+esc(FAX_SENDERS[k].label)+'</button>';
+        }).join("")+'</div>'+
+      (batch
+        ? '<div class="pchips pv-lbl"><span class="pv-tag">期間</span>'+
+          '<button class="pchip'+(F.range==="future"?" on":"")+'" data-act="fax-range" data-v="future">今日から先</button>'+
+          '<button class="pchip'+(F.range==="all"?" on":"")+'" data-act="fax-range" data-v="all">この月すべて</button></div>'
+        : '')+
+    '</div>'+
+    '<div class="fxset">'+
+      '<label class="f"><span>送付書類</span><input value="'+esc(F.doc)+'" data-field="fx-doc"></label>'+
+      '<div class="f-row">'+
+        '<label class="f"><span>部数（枚）</span><input inputmode="numeric" value="'+esc(F.copies)+'" data-field="fx-copies"></label>'+
+        '<label class="f"><span>送信枚数（本状含む）</span><input inputmode="numeric" value="'+esc(F.pages)+'" data-field="fx-pages"></label>'+
+      '</div>'+
+      '<label class="f"><span>送信日</span><input type="date" value="'+esc(F.sendDate)+'" data-field="fx-date"></label>'+
+      '<p class="hint">用紙の上の文字は、押すとその場で直せます。上の設定を変えると、直したところは元に戻ります。</p>'+
+    '</div>';
+
+  if(batch){
+    var p=S.ym.split("-");
+    h+='<div class="fxset"><b style="font-size:14px">'+Number(p[0])+'年'+Number(p[1])+'月の現場（'+F.groups.length+'件）</b>'+
+      '<p class="hint" style="margin-top:4px">チェックの入った現場の送付状を作ります。FAX番号が登録されている施設には、最初からチェックを入れています。'+
+      '日がつづく現場（警察学校など）は1枚にまとめています。</p>';
+    if(!F.groups.length){
+      h+='<p class="hint">この期間に、契約先とつながる現場はありません。</p>';
+    }else{
+      h+='<div class="sheetlist">'+F.groups.map(function(g,i){
+        var s=siteById(g.siteId)||{name:"?"}, c=contactOf(g.siteId)||{};
+        var tm=g.jobs[0]&&g.jobs[0].start?"　"+g.jobs[0].start:"";
+        return '<button class="srow'+(g.on?" on":"")+'" data-act="fax-tog" data-v="'+i+'"><span class="sbox">✓</span>'+
+          '<span class="smid"><b>'+esc(faxDates(g.jobs)+tm)+'　'+esc(s.name)+'</b>'+
+          '<small>'+(c.fax?esc([c.dept, "FAX "+c.fax].filter(Boolean).join("　")):'<span style="color:#8A4508">FAX番号が登録されていません</span>')+'</small></span></button>';
+      }).join("")+'</div>';
+    }
+    if(F.miss.length) h+='<p class="hint">契約先とつながらなかった現場名：'+esc(F.miss.join("、"))+'</p>';
+    h+='</div>';
+  }
+
+  h+='<div class="pv-note">「印刷／PDF」をおすと別の画面がひらきます。A4たて・1施設1枚で出ます。</div>';
+  h+=on.map(function(g){
+    var c=contactOf(g.siteId)||{};
+    return (c.fax?'':'<p class="fxwarn">'+esc((siteById(g.siteId)||{}).name||"")+'：FAX番号が登録されていません。施設の画面の「連絡先」で入れられます。</p>')+
+      '<div class="faxp"><div class="faxp-in" contenteditable="true" spellcheck="false" data-fx-k="'+esc(g.key)+'">'+
+      (F.edit[g.key]||faxPageHtml(g,F))+'</div></div>';
+  }).join("");
+  if(!on.length) h+='<div class="fxset"><p class="hint">送付状を作る現場をえらんでください。</p></div>';
+  return h+'</div>';
+}
+
+/* 別の画面をひらいて印刷する（直した文字もそのまま使う） */
+function doFaxPrint(){
+  var els=document.querySelectorAll(".faxp-in");
+  var pages=[].map.call(els, function(e){ return '<div class="faxp"><div class="faxp-in">'+e.innerHTML+'</div></div>'; });
+  if(!pages.length) return;
+  var css=FAX_CSS+"\n"+[
+    "*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}",
+    "body{margin:0;padding:14px;background:#7B8590;font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif}",
+    ".tools{display:flex;gap:8px;margin:0 auto 14px;max-width:760px}",
+    ".tools button{flex:1;padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;background:#141E2C;color:#fff}",
+    ".tools button+button{background:#fff;color:#141E2C}",
+    ".faxp{font-size:calc(min(100vw - 28px, 760px) * 0.0185)}",
+    "@page{size:A4 portrait;margin:12mm 14mm}",
+    "@media print{",
+    "  body{background:#fff;padding:0}",
+    "  .tools{display:none}",
+    "  .faxp{max-width:none;width:auto;aspect-ratio:auto;padding:0;margin:0;box-shadow:none;border-radius:0;",
+    "    font-size:11pt;break-after:page;page-break-after:always}",
+    "  .faxp:last-child{break-after:auto;page-break-after:auto}",
+    "}"
+  ].join("\n");
+  var title="FAX送付状 "+(S.fax&&S.fax.sendDate||"");
+  var w=null;
+  try{ w=window.open("", "_blank"); }catch(e){ w=null; }
+  if(!w || !w.document){ flash("別の画面をひらけませんでした。ブラウザのポップアップの設定をご確認ください"); return; }
+  w.document.open();
+  w.document.write('<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">'+
+    '<meta name="viewport" content="width=device-width,initial-scale=1">'+
+    '<title>'+esc(title)+'</title><style>'+css+'</style></head><body>'+
+    '<div class="tools"><button onclick="window.print()">印刷／PDFで保存</button>'+
+    '<button onclick="window.close()">とじる</button></div>'+pages.join("")+'</body></html>');
+  w.document.close();
+  var go=function(){ try{ w.focus(); w.print(); }catch(e){} };
+  if(w.document.readyState==="complete") setTimeout(go, 350);
+  else w.onload=function(){ setTimeout(go, 350); };
 }
 
 /* ---------- 施設シート ---------- */
@@ -3207,7 +3514,9 @@ function viewDay(date,jobs,me,adm){
       (conf.length?'<p class="warnline">⚠ '+esc(conf.map(function(id){return memberName(id);}).join("、"))+' は出られない日です</p>':'')+
       (j.note?'<p class="jnote">'+esc(j.note)+'</p>':'')+
       ctLine(contactOf(siteIdForJob(j.site)))+
-      (adm?'<button class="edit" data-act="job-edit" data-id="'+j.id+'">編集</button>':'')+'</div>';
+      (adm?'<button class="edit" data-act="job-edit" data-id="'+j.id+'">編集</button>':'')+
+      ((adm && siteIdForJob(j.site))?'<button class="edit" style="margin-left:16px" data-act="fax-job" data-id="'+j.id+'">FAX送付状</button>':'')+
+      '</div>';
   }).join("")+'</section>';
   if(adm){
     var draft=S.availDraft||{}, ndraft=Object.keys(draft).length;
@@ -3650,6 +3959,17 @@ document.addEventListener("click", async function(ev){
       break;
     }
     case "cti-cancel": S.cti=null; S.ctiMsg=""; render(); break;
+    case "cti-fill": if(S.cti){ S.cti.fillOnly=(v==="1"); render(); } break;
+
+    /* FAX送付状 */
+    case "fax-open": faxOpenBatch(); break;
+    case "fax-job": faxOpenJob(id); break;
+    case "fax-site": faxOpenSite(id); break;
+    case "fax-close": S.fax=null; render(); break;
+    case "fax-sender": if(S.fax){ S.fax.sender=v; S.fax.edit={}; render(); } break;
+    case "fax-range": if(S.fax){ S.fax.range=v; S.fax.edit={}; faxBuild(S.fax); render(); } break;
+    case "fax-tog": if(S.fax && S.fax.groups[Number(v)]){ S.fax.groups[Number(v)].on=!S.fax.groups[Number(v)].on; render(); } break;
+    case "fax-go": doFaxPrint(); break;
     case "cti-run": await ctiRun(); break;
     case "member-view": S.viewMember=id; render(); break;
     case "pin-show": S.pinShow=!S.pinShow; render(); break;
@@ -3967,6 +4287,11 @@ document.addEventListener("click", async function(ev){
 });
 
 /* 入力は再描画せずに控える（打っている途中で消えないように） */
+/* FAX送付状の用紙の上で直した文字をおぼえておく（描き直しても消えないように） */
+document.addEventListener("input", function(ev){
+  var fp=ev.target && ev.target.closest && ev.target.closest(".faxp-in[data-fx-k]");
+  if(fp && S.fax) S.fax.edit[fp.getAttribute("data-fx-k")]=fp.innerHTML;
+});
 document.addEventListener("input", function(ev){
   var f=ev.target.getAttribute&&ev.target.getAttribute("data-field"); if(!f) return;
   if(isViewer() && VIEW_FIELDS.indexOf(f)<0) return;
@@ -3975,6 +4300,17 @@ document.addEventListener("input", function(ev){
   else if(f==="memberPin"){ S.memberPin=val; S.loginErr=""; }
   else if(f==="newService") S.newService=val;
   else if(f.indexOf("ct-")===0){ if(S.ctEdit){ S.ctEdit[f.slice(3)]=val; S.ctErr=""; } }
+  else if(f==="fx-doc"||f==="fx-copies"||f==="fx-pages"||f==="fx-date"){
+    if(S.fax){
+      S.fax[{"fx-doc":"doc","fx-copies":"copies","fx-pages":"pages","fx-date":"sendDate"}[f]]=val;
+      S.fax.edit={};
+      clearTimeout(window.__fx);
+      window.__fx=setTimeout(function tick(){
+        if(composing){ window.__fx=setTimeout(tick,400); return; }
+        render();
+      }, 350);
+    }
+  }
   else if(f==="addName"||f==="addId"||f==="addPin"||f==="addAdminPin"){ S[f]=val; S.addErr=""; }
   else if(f==="pinNew"||f==="pinAdmin"){ S[f]=val; S.pinErr=""; }
   else if(f==="seName"||f==="seArea"){
