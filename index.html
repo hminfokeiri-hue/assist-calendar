@@ -745,6 +745,35 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
   border:2px solid var(--line); font-size:17px; font-weight:800; color:var(--ink)}
 .mmove:active{background:#DFE6E4}
 .mmove[disabled]{opacity:.28}
+/* ============================================================
+   施設の連絡先（管理者だけに出す）
+   ============================================================ */
+.ctline{display:flex; flex-wrap:wrap; gap:3px 12px; margin-top:7px; padding:6px 9px;
+  background:#F4F7F6; border-radius:8px; font-size:12px; color:var(--ink2); line-height:1.5}
+.ctline .ct-who{font-weight:700; color:var(--ink)}
+.ctline a{color:var(--ok); font-weight:800; text-decoration:none; font-variant-numeric:tabular-nums}
+.ctline span{font-variant-numeric:tabular-nums}
+.ctdl{margin:10px 0 0}
+.ctr{display:flex; gap:10px; padding:8px 0; border-top:1px solid #F0F2F1; font-size:14px; line-height:1.5}
+.ctr:first-child{border-top:none}
+.ctr dt{flex:0 0 86px; font-size:12px; color:var(--ink2); font-weight:700; padding-top:2px}
+.ctr dd{margin:0; flex:1; min-width:0; overflow-wrap:anywhere; font-variant-numeric:tabular-nums}
+.ctr dd a{color:var(--ok); font-weight:800; font-size:16px; text-decoration:none}
+.ctr dd small{display:block; font-size:11px; color:var(--ink2)}
+.scard-ct{display:block; font-size:11px; color:var(--ok); font-weight:700; margin-top:2px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.cti-box{background:var(--card); border:2px dashed var(--line); border-radius:14px; padding:20px 18px; text-align:center}
+.cti-box b{display:block; font-size:15px}
+.cti-box small{display:block; font-size:12px; color:var(--ink2); margin-top:6px; line-height:1.7}
+.cti-box button{margin-top:14px; background:var(--ink); color:#fff; padding:12px 22px; border-radius:10px; font-size:14px; font-weight:800}
+.prev select{width:100%; font-size:12px; padding:4px 3px; border:1px solid var(--line); border-radius:6px; background:#fff; font-family:inherit}
+.prev td.cti-v{font-size:11px; color:var(--ink2); line-height:1.45}
+.prev td.cti-v b{color:var(--ink); font-weight:700}
+.cti-st{display:inline-block; font-size:10px; font-weight:800; padding:2px 6px; border-radius:5px; white-space:nowrap}
+.cti-st.new{background:#E3F1EC; color:var(--ok)}
+.cti-st.upd{background:#EAF2FA; color:#2B6CB0}
+.cti-st.same{background:#EDF1F0; color:var(--ink2)}
+.cti-st.skip{background:#FDEEE0; color:#8A4508}
 </style>
 </head>
 <body>
@@ -865,7 +894,8 @@ var S={
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
   fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
-  imp:null, impBusy:false, impMsg:"", calRich:true, showMates:true, printNames:true, printLayout:"grid", hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false, cFilter:"active", sortMode:false
+  imp:null, impBusy:false, impMsg:"", calRich:true, showMates:true, printNames:true, printLayout:"grid", hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false, cFilter:"active", sortMode:false,
+  contacts:{}, ctEdit:null, ctErr:"", ctBusy:false, cti:null, ctiBusy:false, ctiMsg:""
 };
 var _lastTab=null;
 var NAMES={};   /* 現場に記録された担当者名（協力者は名簿を読めないため） */
@@ -957,6 +987,7 @@ onAuthStateChanged(auth, async function(user){
     S.session=null; S.authed=false; S.booting=false; S.loginBusy=false;
     S.config={members:[],sites:[],services:[],showAnnualToMembers:true,memberOrder:[]};
     S.annualByFy={}; S.month=emptyMonth(); NAMES={};
+    S.contacts={}; S.ctEdit=null; S.cti=null;
     render(); return;
   }
   try{
@@ -1016,6 +1047,14 @@ function subscribeConfig(){
   subs.config.push(onSnapshot(doc(db,"config","sites"), function(d){
     S.config.sites=(d.data()||{}).list||[]; render();
   }, function(){ /* 協力者に非公開の設定なら読めない＝空でよい */ }));
+
+  /* 施設の連絡先は、管理者（と社長用）だけが読む。協力者は読みにいかない。
+     ルールでも管理者と社長用しか読めないので、読めなければ空のままにする。 */
+  if(isAdmin()){
+    subs.config.push(onSnapshot(doc(db,"config","contacts"), function(d){
+      S.contacts=(d.data()||{}).bySite||{}; render();
+    }, function(){ S.contacts={}; }));
+  }
 
   if(isViewer()){
     /* 社長用は名簿（暗証番号の控えが入っている）を読まず、名前だけの一覧を読む */
@@ -1664,10 +1703,12 @@ function sitesResults(){
   sites.forEach(function(s){ (groups[s.group]=groups[s.group]||[]).push(s); });
   return Object.keys(GROUPS).filter(function(g){return groups[g];}).map(function(g){
     return '<div class="sgroup"><h3>'+GROUPS[g]+'（'+groups[g].length+'）</h3>'+groups[g].map(function(s){
-      var n=plansOf(s.id).length, L=contractLabel(s);
+      var n=plansOf(s.id).length, L=contractLabel(s), C=contactOf(s.id);
       return '<button class="scard'+(L.cls==="ended"?" endcard":"")+'" data-act="site" data-id="'+s.id+'">'+
         '<span class="scard-m"><b>'+esc(s.name)+'</b>'+
-        '<small>'+esc(s.area)+(L.note?'　'+esc(L.note):'')+'</small></span>'+
+        '<small>'+esc(s.area)+(L.note?'　'+esc(L.note):'')+'</small>'+
+        (hasContact(C)?'<small class="scard-ct">☎ '+esc([C.dept, C.tel?"TEL "+C.tel:"", C.fax?"FAX "+C.fax:""].filter(Boolean).join("　"))+'</small>':'')+
+        '</span>'+
         '<span class="cbadge '+L.cls+'">'+esc(L.text)+'</span>'+
         '<span class="cnt'+(n?"":" zero")+'">'+(n?n+"項目":"未設定")+'</span></button>';
     }).join("")+'</div>';
@@ -1719,6 +1760,7 @@ function viewSites(){
 
 /* ---------- 取込 ---------- */
 function viewImport(){
+  if(S.cti) return ctiView();
   var I=S.imp;
   var h='<h2 class="secttl">エクセル・PDFから取り込む</h2>'+
     '<p class="hint">いつもお使いのカレンダー表や人員配置表を、そのまま読み込めます。'+
@@ -1733,6 +1775,16 @@ function viewImport(){
       '</div>'+
       (S.impBusy?'<p class="busy">読み取っています…</p>':'')+
       (S.impMsg?'<div class="err">'+esc(S.impMsg)+'</div>':'');
+    h+='<h2 class="secttl mt">施設の連絡先を取り込む</h2>'+
+      '<p class="hint">封筒・FAXテンプレートの「宛先リスト」のような、施設名と担当者・電話・FAXが並んだ表を読み込んで、'+
+      '契約先ごとの連絡先にまとめて入れます。入れた連絡先は管理者の画面にだけ出ます。</p>'+
+      '<div class="cti-box"><b>連絡先の表をえらぶ</b>'+
+        '<small>エクセル（.xlsx）。見出しに「宛名」か「施設名」がある表を読みます<br>'+
+        '担当者・電話番号・FAX番号・郵便番号・住所・メモの列があれば、それも入ります</small>'+
+        '<button data-act="cti-pick">ファイルをえらぶ</button>'+
+        '<input type="file" id="ctiFile" accept=".xlsx,.xls,.csv" style="display:none"></div>'+
+      (S.ctiBusy?'<p class="busy">読み取っています…</p>':'')+
+      (S.ctiMsg?'<div class="err">'+esc(S.ctiMsg)+'</div>':'');
     return h;
   }
 
@@ -2114,6 +2166,341 @@ function siteEditor(){
     '</section>';
 }
 
+/* ============================================================
+   施設の連絡先（部署・担当者・TEL・FAX・住所・メモ）
+   ・管理者だけが見て直せる。社長用（見るだけ）は読むだけ。協力者には一切出さない。
+   ・保存場所は config/contacts の bySite（契約先のID → 連絡先）。
+     Firestore のルールでも、管理者と社長用しか読めないようにしている。
+   ・1施設ずつ「なおす」から直せるほか、取込タブで表からまとめて入れられる。
+   ============================================================ */
+var CT_FIELDS=[
+  ["dept","部署・担当者","例：会計課　浅井 様"],
+  ["tel","TEL","例：06-6633-1234"],
+  ["fax","FAX","例：06-6645-5862"],
+  ["zip","郵便番号","例：556-0005"],
+  ["address","住所","例：大阪市浪速区日本橋5-5-11"],
+  ["note","メモ","例：代表電話から会計課へ"]
+];
+function contactOf(siteId){ return siteId ? ((S.contacts||{})[siteId]||null) : null; }
+function hasContact(c){
+  return !!(c && CT_FIELDS.some(function(f){ return String(c[f[0]]||"").trim(); }));
+}
+/* 電話をかけるリンク用に、数字だけにする */
+function telHref(t){
+  var d=String(t||"").normalize("NFKC").replace(/[^\d+]/g,"");
+  return d ? "tel:"+d : "";
+}
+function zipText(z){ return String(z||"").replace(/^〒\s*/,"").trim(); }
+function jpDateTime(iso){
+  var d=new Date(iso); if(isNaN(d)) return "";
+  return d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日 "+pad(d.getHours())+":"+pad(d.getMinutes());
+}
+
+/* ---- 名前から契約先をさがす（連絡先の取込と、日の画面の現場名で使う） ----
+   「大阪府南警察署」「南警察署」、「大阪府大阪水上警察署」「水上警察署」、
+   「りんくうタウン別館」「りんくう別館」のような言い方のゆれを吸収する。
+   まず、ならした名前がぴったり同じものをさがし、なければ近いものを1つだけえらぶ。
+   近いものが2つ以上あって決められないときは、えらばない（まちがって入れないため）。 */
+function ctNorm(t){
+  return normName(t).replace(/曾/g,"曽").replace(/^大阪府警察本部/,"").replace(/^大阪府/,"");
+}
+var _siteIx=null, _siteIxKey="", _jobSite={};
+function siteIndex(){
+  var key=(S.config.sites||[]).map(function(s){ return s.id+":"+s.name+":"+s.group; }).join("|");
+  if(_siteIx && _siteIxKey===key) return _siteIx;
+  _siteIx=(S.config.sites||[]).map(function(s){ return {id:s.id, n:ctNorm(s.name), g:s.group}; });
+  _siteIxKey=key; _jobSite={};
+  return _siteIx;
+}
+function matchSiteId(names){
+  var ix=siteIndex();
+  var ns=(names||[]).map(ctNorm).filter(function(n){ return n.length>=2; });
+  /* 「大阪府〜」と書いてある名前なら、大阪府の契約先を優先する */
+  var osaka=(names||[]).some(function(t){ return normName(t).indexOf("大阪府")===0; });
+  var hit=[];
+  ix.forEach(function(x){ if(ns.indexOf(x.n)>=0 && hit.indexOf(x)<0) hit.push(x); });
+  if(hit.length===1) return hit[0].id;
+  if(hit.length>1){
+    /* 同じ名前の契約先が2つ以上（大阪の警察学校と鳥取の警察学校など）。決めきれなければえらばない */
+    var fu=hit.filter(function(x){ return x.g==="府"; });
+    return (osaka && fu.length===1) ? fu[0].id : null;
+  }
+  var best=null, bestD=99, tie=false;
+  ns.forEach(function(n){
+    if(n.length<3) return;
+    ix.forEach(function(x){
+      if(x.n.length<3) return;
+      var near = x.n.indexOf(n)>=0 || n.indexOf(x.n)>=0 ||
+        (subseq(n, x.n) && x.n.length-n.length<=4) ||
+        (subseq(x.n, n) && n.length-x.n.length<=4);
+      if(!near) return;
+      var d=Math.abs(x.n.length-n.length);
+      if(d<bestD){ best=x.id; bestD=d; tie=false; }
+      else if(d===bestD && best!==x.id) tie=true;
+    });
+  });
+  return (best && !tie) ? best : null;
+}
+function siteIdForJob(name){
+  siteIndex();
+  if(!Object.prototype.hasOwnProperty.call(_jobSite, name)) _jobSite[name]=matchSiteId([name]);
+  return _jobSite[name];
+}
+
+/* 日の画面の現場カードに出す、ひとこと版 */
+function ctLine(c){
+  if(!hasContact(c)) return "";
+  var p=[];
+  if(c.dept) p.push('<span class="ct-who">'+esc(c.dept)+'</span>');
+  if(c.tel)  p.push('<a href="'+esc(telHref(c.tel))+'">TEL '+esc(c.tel)+'</a>');
+  if(c.fax)  p.push('<span>FAX '+esc(c.fax)+'</span>');
+  if(!p.length) return "";
+  return '<div class="ctline">'+p.join("")+'</div>';
+}
+function ctRow(k, v){ return v ? '<div class="ctr"><dt>'+k+'</dt><dd>'+v+'</dd></div>' : ''; }
+
+/* 施設の画面の「連絡先」欄 */
+function contactBlock(s){
+  var c=contactOf(s.id)||{}, ed=(S.ctEdit && S.ctEdit.id===s.id);
+  var h='<section class="blk"><div class="blk-hd"><h3>連絡先</h3>'+
+    (ed?'':'<button class="add" data-act="ct-edit" data-id="'+s.id+'">'+(hasContact(c)?"なおす":"＋ 入れる")+'</button>')+
+    '</div>';
+  if(ed){
+    var e=S.ctEdit;
+    h+=CT_FIELDS.map(function(f){
+      var tel=(f[0]==="tel"||f[0]==="fax");
+      return '<label class="f"><span>'+f[1]+'</span>'+
+        '<input value="'+esc(e[f[0]]||"")+'" data-field="ct-'+f[0]+'" placeholder="'+esc(f[2])+'"'+
+        (tel?' inputmode="tel"':'')+'></label>';
+    }).join("")+
+    (S.ctErr?'<p class="err">'+esc(S.ctErr)+'</p>':'')+
+    '<div class="addbar"><button class="ghost" data-act="ct-cancel">やめる</button>'+
+      '<button class="primary" data-act="ct-save"'+(S.ctBusy?" disabled":"")+'>'+
+      (S.ctBusy?"保存中…":"保存する")+'</button></div>';
+  }else if(!hasContact(c)){
+    h+='<p class="hint">まだ登録がありません。'+
+      (isViewer()?'':'「＋ 入れる」から登録できます。「取込」タブで宛先リストからまとめて入れることもできます。')+'</p>';
+  }else{
+    var adr=(c.zip?"〒"+zipText(c.zip)+" ":"")+(c.address||"");
+    h+='<dl class="ctdl">'+
+      ctRow("部署・担当者", esc(c.dept))+
+      ctRow("TEL", c.tel?'<a href="'+esc(telHref(c.tel))+'">'+esc(c.tel)+'</a><small>おすと電話をかけられます（スマホ）</small>':"")+
+      ctRow("FAX", esc(c.fax))+
+      ctRow("住所", esc(adr.trim()))+
+      ctRow("メモ", esc(c.note))+
+    '</dl>'+
+    (c.updatedAt?'<p class="hint">最終更新：'+esc(jpDateTime(c.updatedAt))+'</p>':'');
+  }
+  h+='<p class="hint">この連絡先は管理者の画面にだけ出ます。協力会社さんには見えません。</p>';
+  return h+'</section>';
+}
+
+async function saveContact(){
+  var e=S.ctEdit; if(!e) return;
+  var rec={};
+  CT_FIELDS.forEach(function(f){ rec[f[0]]=String(e[f[0]]||"").trim(); });
+  rec.zip=zipText(rec.zip);
+  rec.updatedAt=new Date().toISOString();
+  S.ctBusy=true; S.ctErr=""; render();
+  try{
+    var bySite={}; bySite[e.id]=rec;
+    await setDoc(doc(db,"config","contacts"), {bySite:bySite}, {merge:true});
+    S.contacts=Object.assign({}, S.contacts||{}); S.contacts[e.id]=rec;
+    S.ctEdit=null; S.ctBusy=false;
+    flash("連絡先を保存しました");
+  }catch(x){
+    S.ctBusy=false;
+    S.ctErr=(x && x.code==="permission-denied")
+      ? "保存できませんでした。Firebaseのルールに「連絡先」の分が入っているかご確認ください"
+      : "保存できませんでした（"+((x&&(x.code||x.message))||"")+"）";
+    render();
+  }
+}
+
+/* ---- 連絡先の表を取り込む ---- */
+function ctiClean(v){ return String(v==null?"":v).replace(/[\s　]+/g," ").trim(); }
+function ctiPhone(v){ return String(v==null?"":v).normalize("NFKC").replace(/\s+/g,"").trim(); }
+function ctiZip(v){
+  var z=zipText(String(v==null?"":v).normalize("NFKC")).replace(/\s+/g,"");
+  if(/^\d{7}$/.test(z)) z=z.slice(0,3)+"-"+z.slice(3);
+  return z;
+}
+/* 表の見出しから、どの列に何が入っているかを読みとる */
+function ctiParse(grid){
+  var hr=-1, head=null;
+  for(var r=0; r<Math.min(grid.length,12); r++){
+    var row=(grid[r]||[]).map(function(x){ return normName(x); });
+    if(row.indexOf("宛名")>=0 || row.indexOf("施設名")>=0){ hr=r; head=row; break; }
+  }
+  if(hr<0) return null;
+  function col(test){ for(var i=0;i<head.length;i++) if(head[i] && test(head[i])) return i; return -1; }
+  var C={
+    name: head.indexOf("宛名")>=0 ? head.indexOf("宛名") : head.indexOf("施設名"),
+    alt1: col(function(h){ return h==="管理番号"; }),
+    alt2: col(function(h){ return h==="会社名"; }),
+    dept: col(function(h){ return h.indexOf("担当")>=0; }),
+    tel:  col(function(h){ return h.indexOf("電話")>=0 || h.toUpperCase()==="TEL"; }),
+    fax:  col(function(h){ return h.toUpperCase().indexOf("FAX")>=0; }),
+    zip:  col(function(h){ return h.indexOf("郵便")>=0; }),
+    note: col(function(h){ return h.indexOf("メモ")>=0; })
+  };
+  var addr=[]; head.forEach(function(h,i){ if(h && h.indexOf("住所")===0) addr.push(i); });
+  var out=[];
+  for(var j=hr+1; j<grid.length; j++){
+    var g=grid[j]||[];
+    var nm=ctiClean(g[C.name]);
+    if(!nm || /[〇○]{2}/.test(nm)) continue;
+    var parts=[];
+    addr.forEach(function(i){
+      var a=ctiClean(g[i]);
+      if(a.length<=1 || /^[A-Za-z]+$/.test(a)) return;          /* 「Excel」「f」などの書きかけは使わない */
+      if(parts.some(function(p){ return p.indexOf(a)>=0; })) return;
+      parts=parts.filter(function(p){ return a.indexOf(p)<0; });
+      parts.push(a);
+    });
+    out.push({
+      name:nm,
+      alts:[C.alt1>=0?ctiClean(g[C.alt1]):"", C.alt2>=0?ctiClean(g[C.alt2]):""].filter(Boolean),
+      dept: C.dept>=0?ctiClean(g[C.dept]):"",
+      tel:  C.tel>=0?ctiPhone(g[C.tel]):"",
+      fax:  C.fax>=0?ctiPhone(g[C.fax]):"",
+      zip:  C.zip>=0?ctiZip(g[C.zip]):"",
+      address: parts.join(" "),
+      note: C.note>=0?ctiClean(g[C.note]):""
+    });
+  }
+  return out.length ? out : null;
+}
+
+async function ctiLoad(file){
+  S.ctiBusy=true; S.ctiMsg=""; render();
+  try{
+    var XLSX=await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
+    var wb=XLSX.read(await file.arrayBuffer(), {raw:false});
+    var best=null;
+    wb.SheetNames.forEach(function(n){
+      var grid=XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1, defval:"", raw:false, blankrows:false});
+      var rows=ctiParse(grid);
+      if(!rows) return;
+      var score=rows.length+(n.indexOf("宛先")>=0?1000:0);   /* 「宛先リスト」シートを優先 */
+      if(!best || score>best.score) best={sheet:n, rows:rows, score:score};
+    });
+    S.ctiBusy=false;
+    if(!best){
+      S.ctiMsg="連絡先を読み取れませんでした。見出しに「宛名」か「施設名」がある表かご確認ください。";
+      render(); return;
+    }
+    best.rows.forEach(function(r){ r.auto=matchSiteId([r.name].concat(r.alts)); r.pick=r.auto||"_skip"; });
+    S.cti={fileName:file.name, sheet:best.sheet, rows:best.rows};
+    S.scrollTop=true; render();
+  }catch(x){
+    S.ctiBusy=false;
+    S.ctiMsg="読み取れませんでした（"+((x&&x.message)||x)+"）";
+    render();
+  }
+}
+
+/* 取り込んだあとの連絡先。表に書いてあるところだけ上書きし、空欄のところは今の内容を残す */
+function ctiMerged(r){
+  var old=contactOf(r.pick)||{}, rec={}, changed=0;
+  CT_FIELDS.forEach(function(f){
+    var k=f[0], nv=String(r[k]||"").trim(), ov=String(old[k]||"").trim();
+    rec[k]= nv ? nv : ov;
+    if(nv && nv!==ov) changed++;
+  });
+  return {rec:rec, changed:changed, isNew:!hasContact(old)};
+}
+
+function ctiTable(){
+  var T=S.cti; if(!T) return "";
+  var sites=(S.config.sites||[]).slice().sort(function(a,b){
+    var ga=(a.group==="府"?0:1), gb=(b.group==="府"?0:1);
+    return ga!==gb ? ga-gb : String(a.name).localeCompare(String(b.name),"ja");
+  });
+  var used={};
+  T.rows.forEach(function(r){ if(r.pick!=="_skip") used[r.pick]=(used[r.pick]||0)+1; });
+  var h='<div class="prev" data-keep-scroll="cti"><table><thead><tr>'+
+    '<th>表の施設名</th><th style="width:34%">入れる先（契約先）</th><th>入る内容</th><th style="width:52px">状態</th>'+
+    '</tr></thead><tbody>';
+  h+=T.rows.map(function(r,i){
+    var st;
+    if(r.pick==="_skip") st='<span class="cti-st skip">入れない</span>';
+    else{
+      var m=ctiMerged(r);
+      st = used[r.pick]>1 ? '<span class="cti-st skip">重複</span>'
+         : m.isNew ? '<span class="cti-st new">新規</span>'
+         : m.changed ? '<span class="cti-st upd">更新</span>'
+         : '<span class="cti-st same">同じ</span>';
+    }
+    var v=[r.dept?'<b>'+esc(r.dept)+'</b>':"", r.tel?"TEL "+esc(r.tel):"", r.fax?"FAX "+esc(r.fax):"",
+           r.note?esc(r.note):""].filter(Boolean).join("<br>");
+    return '<tr><td>'+esc(r.name)+'</td>'+
+      '<td><select data-field="cti-site" data-i="'+i+'">'+
+        '<option value="_skip"'+(r.pick==="_skip"?" selected":"")+'>（入れない）</option>'+
+        sites.map(function(s){
+          return '<option value="'+esc(s.id)+'"'+(r.pick===s.id?" selected":"")+'>'+esc(s.name)+
+            (s.id===r.auto?"　←自動":"")+'</option>';
+        }).join("")+
+      '</select></td>'+
+      '<td class="cti-v">'+(v||"—")+'</td><td>'+st+'</td></tr>';
+  }).join("");
+  return h+'</tbody></table></div>';
+}
+
+function ctiCounts(){
+  var T=S.cti, c={all:0, go:0, skip:0, auto:0};
+  if(!T) return c;
+  T.rows.forEach(function(r){
+    c.all++;
+    if(r.pick==="_skip") c.skip++; else c.go++;
+    if(r.auto) c.auto++;
+  });
+  return c;
+}
+
+function ctiView(){
+  var T=S.cti, c=ctiCounts();
+  var h='<h2 class="secttl">施設の連絡先を取り込む</h2>'+
+    '<div class="impsum"><span>'+esc(T.fileName)+'</span><span>'+esc(T.sheet)+'</span>'+
+      '<span>'+c.all+'件</span><span>契約先と一致 '+c.auto+'</span>'+
+      (c.all-c.auto?'<span class="warn">一致しない '+(c.all-c.auto)+'</span>':'')+'</div>'+
+    '<p class="hint">「入れる先」は名前から自動でえらんでいます（←自動）。ちがうときや、えらばれていないときは、'+
+    'ここでえらび直してください。「（入れない）」の行は取り込みません。<br>'+
+    '表に書いてある項目だけ上書きします。表が空欄のところ（電話番号など）は、今の登録をそのまま残します。</p>'+
+    '<div id="ctiRes">'+ctiTable()+'</div>'+
+    '<div class="impbar"><button class="ghost" data-act="cti-cancel">やめる</button>'+
+      '<button class="primary" data-act="cti-run"'+(S.ctiBusy||!c.go?" disabled":"")+'>'+
+      (S.ctiBusy?"取り込み中…":"取り込む（"+c.go+"件）")+'</button></div>'+
+    (S.ctiMsg?'<p class="err">'+esc(S.ctiMsg)+'</p>':'');
+  return h;
+}
+
+async function ctiRun(){
+  var T=S.cti; if(!T) return;
+  var bySite={}, n=0, now=new Date().toISOString();
+  T.rows.forEach(function(r){
+    if(r.pick==="_skip") return;
+    var m=ctiMerged(r);
+    m.rec.updatedAt=now;
+    bySite[r.pick]=m.rec; n++;
+  });
+  if(!n) return;
+  S.ctiBusy=true; S.ctiMsg=""; render();
+  try{
+    await setDoc(doc(db,"config","contacts"), {bySite:bySite}, {merge:true});
+    S.contacts=Object.assign({}, S.contacts||{}, bySite);
+    S.cti=null; S.ctiBusy=false;
+    S.tab="sites"; S.scrollTop=true;
+    flash(n+"施設の連絡先を取り込みました");
+  }catch(x){
+    S.ctiBusy=false;
+    S.ctiMsg=(x && x.code==="permission-denied")
+      ? "取り込めませんでした。Firebaseのルールに「連絡先」の分が入っているかご確認ください"
+      : "取り込めませんでした（"+((x&&(x.code||x.message))||"")+"）";
+    render();
+  }
+}
+
 /* ---------- 施設シート ---------- */
 function viewSiteSheet(){
   var s=siteById(S.openSite); if(!s) return "";
@@ -2135,6 +2522,7 @@ function viewSiteSheet(){
        ? '<p class="warnline">更新の時期が近づいています。</p>' : '')+
      '</section>';
   if(adm) h+='<button class="se-edit" data-act="se-edit" data-id="'+s.id+'">契約期間や名前をなおす</button>';
+  if(adm) h+=contactBlock(s);
 
   h+='<section class="blk"><div class="blk-hd"><h3>履行内容と実施月</h3>'+
     (adm?'<button class="add" data-act="plan-add-open" data-id="'+s.id+'">＋ 追加</button>':'')+'</div>';
@@ -2818,6 +3206,7 @@ function viewDay(date,jobs,me,adm){
       }).join(""):'<span class="chip none">未割り当て</span>')+'</div>'+
       (conf.length?'<p class="warnline">⚠ '+esc(conf.map(function(id){return memberName(id);}).join("、"))+' は出られない日です</p>':'')+
       (j.note?'<p class="jnote">'+esc(j.note)+'</p>':'')+
+      ctLine(contactOf(siteIdForJob(j.site)))+
       (adm?'<button class="edit" data-act="job-edit" data-id="'+j.id+'">編集</button>':'')+'</div>';
   }).join("")+'</section>';
   if(adm){
@@ -3245,7 +3634,23 @@ document.addEventListener("click", async function(ev){
       render(); break;
     }
     case "day": S.openDay=v; S.editing=null; S.availDraft={}; render(); break;
-    case "site": S.openSite=id; S.addingPlanTo=null; S.hist=null; S.siteEdit=null; S.seConfirm=false; render(); break;
+    case "site": S.openSite=id; S.addingPlanTo=null; S.hist=null; S.siteEdit=null; S.seConfirm=false; S.ctEdit=null; render(); break;
+
+    /* 施設の連絡先 */
+    case "ct-edit": {
+      var c0=contactOf(id)||{}, ce={id:id};
+      CT_FIELDS.forEach(function(f){ ce[f[0]]=c0[f[0]]||""; });
+      S.ctEdit=ce; S.ctErr=""; render(); break;
+    }
+    case "ct-cancel": S.ctEdit=null; S.ctErr=""; render(); break;
+    case "ct-save": await saveContact(); break;
+    case "cti-pick": {
+      var cf=document.getElementById("ctiFile");
+      if(cf) cf.click();
+      break;
+    }
+    case "cti-cancel": S.cti=null; S.ctiMsg=""; render(); break;
+    case "cti-run": await ctiRun(); break;
     case "member-view": S.viewMember=id; render(); break;
     case "pin-show": S.pinShow=!S.pinShow; render(); break;
 
@@ -3367,7 +3772,7 @@ document.addEventListener("click", async function(ev){
     }
     case "close": case "close-bg": S.openDay=null; S.openSite=null; S.editing=null;
       S.addingPlanTo=null; S.availDraft={}; S.hist=null; S.viewMember=null;
-      S.siteEdit=null; S.seConfirm=false; render(); break;
+      S.siteEdit=null; S.seConfirm=false; S.ctEdit=null; render(); break;
 
     /* 年度 */
     case "fy": {
@@ -3569,6 +3974,7 @@ document.addEventListener("input", function(ev){
   if(f==="loginId"){ S.loginId=val; S.loginErr=""; }
   else if(f==="memberPin"){ S.memberPin=val; S.loginErr=""; }
   else if(f==="newService") S.newService=val;
+  else if(f.indexOf("ct-")===0){ if(S.ctEdit){ S.ctEdit[f.slice(3)]=val; S.ctErr=""; } }
   else if(f==="addName"||f==="addId"||f==="addPin"||f==="addAdminPin"){ S[f]=val; S.addErr=""; }
   else if(f==="pinNew"||f==="pinAdmin"){ S[f]=val; S.pinErr=""; }
   else if(f==="seName"||f==="seArea"){
@@ -3602,6 +4008,15 @@ document.addEventListener("change", function(ev){
   var f=ev.target.getAttribute&&ev.target.getAttribute("data-field"); if(!f) return;
   /* えらんだメニューそのものは作り直さず、結果のところだけ書きかえる。
      作り直すと、iPhoneのドラム式メニューで選んだ内容が戻ってしまうため。 */
+  if(f==="cti-site"){
+    var ci=Number(ev.target.getAttribute("data-i"));
+    if(S.cti && S.cti.rows[ci]){
+      S.cti.rows[ci].pick=ev.target.value||"_skip";
+      /* 表の中身はそのまま（スクロール位置を保つ）、件数とボタンだけ描き直す */
+      render();
+    }
+    return;
+  }
   if(f==="seStart"||f==="seEnd"){
     if(S.siteEdit){ S.siteEdit[f==="seStart"?"start":"end"]=ev.target.value; S.seErr=""; render(); }
     return;
@@ -3637,6 +4052,7 @@ document.addEventListener("dblclick", function(ev){
 /* ファイルの受け取り */
 document.addEventListener("change", function(ev){
   if(ev.target && ev.target.id==="impFile" && ev.target.files && ev.target.files[0]) impLoad(ev.target.files[0]);
+  if(ev.target && ev.target.id==="ctiFile" && ev.target.files && ev.target.files[0]) ctiLoad(ev.target.files[0]);
 });
 ["dragenter","dragover"].forEach(function(t){
   document.addEventListener(t, function(ev){
