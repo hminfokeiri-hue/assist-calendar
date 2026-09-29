@@ -1,0 +1,2053 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>アシスト リーダー用｜ホームメンテナンス</title>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+:root {
+  --blue: #E8873A;
+  --blue-dark: #C96A1E;
+  --sun-soft: #F7DDBF;
+  --bg: #FBF6ED;
+  --card: #ffffff;
+  --border: #EDE2CE;
+  --text: #3A3530;
+  --muted: #6B5F52;
+  --danger: #C65D4B;
+  --success: #4A7C6F;
+}
+* { box-sizing: border-box; }
+body { margin:0; font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Arial,sans-serif; background:var(--bg); color:var(--text); }
+#app { max-width: 900px; margin:0 auto; min-height:100vh; }
+.topbar { background:var(--blue); color:#fff; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; }
+.topbar h1 { font-size:16px; margin:0; font-weight:700; }
+.topbar button { background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.5); border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; }
+main { padding:14px; }
+.card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:14px; }
+.center-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; }
+.login-card { max-width:360px; width:100%; text-align:center; }
+.login-card h1 { font-size:20px; margin:0 0 2px; }
+.sub { color:var(--muted); font-size:13px; margin:0 0 18px; }
+label { display:block; text-align:left; font-size:12.5px; font-weight:700; margin:10px 0 4px; }
+input, select, textarea { width:100%; padding:10px; border:1.5px solid var(--border); border-radius:10px; font-size:15px; background:#fff; color:var(--text); font-family:inherit; }
+textarea { min-height:90px; line-height:1.6; resize:vertical; }
+button.primary { width:100%; margin-top:14px; padding:12px; background:var(--blue); color:#fff; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; }
+button.small { padding:9px 16px; background:var(--blue); color:#fff; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; }
+button.ghost { padding:9px 16px; background:#fff; color:var(--danger); border:1.5px solid var(--danger); border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; }
+button.link { background:none; border:none; color:var(--blue-dark); font-size:13px; cursor:pointer; padding:0; text-decoration:underline; }
+.muted { color:var(--muted); }
+.title { font-size:16px; font-weight:700; margin:0 0 12px; }
+.pill { display:inline-block; background:var(--sun-soft); color:var(--blue-dark); border-radius:999px; font-size:11px; font-weight:700; padding:2px 8px; }
+.pill.on { background:#E4F0EC; color:var(--success); }
+.pill.wait { background:#FFF1DC; color:var(--blue-dark); }
+.pill.no { background:#FBE7E3; color:var(--danger); }
+.status-pill { display:inline-block; font-size:12px; padding:3px 10px; border-radius:20px; font-weight:700; white-space:nowrap; }
+.status-pending { background:#fdf0d5; color:#C08A2E; }
+.status-approved { background:#e3f3ea; color:var(--success); }
+.status-rejected { background:#fbe6e4; color:var(--danger); }
+.row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:11px 6px; border-bottom:1px solid var(--border); cursor:pointer; }
+.tel { flex-shrink:0; display:flex; align-items:center; gap:5px; padding:8px 12px; border:1.5px solid var(--success); border-radius:10px; color:var(--success); text-decoration:none; font-weight:700; font-size:13px; white-space:nowrap; }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+.filters { display:grid; grid-template-columns:2fr 1fr; gap:10px; margin-bottom:12px; }
+.chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+.row-between { display:flex; align-items:center; justify-content:space-between; }
+.req-item { padding:12px 0; border-bottom:1px solid var(--border); }
+.req-item:last-child { border-bottom:none; }
+.chip { font-size:12.5px; padding:7px 14px; border-radius:999px; border:1.5px solid var(--border); background:#fff; color:var(--text); cursor:pointer; }
+.chip.on { border-color:var(--blue); background:var(--blue); color:#fff; }
+.note { background:#FFF7EC; border:1px solid var(--sun-soft); border-radius:10px; padding:10px 12px; font-size:12px; color:var(--muted); }
+.panel { border:1.5px dashed var(--border); border-radius:12px; padding:14px; margin-top:16px; background:#FCFAF6; }
+.tabbar { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+.tabbar button { flex:1; min-width:92px; padding:10px 8px; border-radius:10px; border:1.5px solid var(--border); background:#fff; color:var(--text); font-size:14px; font-weight:700; cursor:pointer; }
+.tabbar button.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+.badge { display:inline-block; background:var(--danger); color:#fff; border-radius:999px; font-size:11px; padding:1px 7px; margin-left:5px; }
+.chat-scroll { height:56vh; overflow-y:auto; border:1px solid var(--border); border-radius:12px; padding:12px; background:#FDFBF7; }
+.bubble-row { display:flex; margin-bottom:10px; }
+.bubble-row.mine { justify-content:flex-end; }
+.bubble { max-width:80%; background:#fff; border:1px solid var(--border); border-radius:14px; padding:9px 12px; font-size:14.5px; line-height:1.55; white-space:pre-wrap; word-break:break-word; }
+.bubble-row.mine .bubble { background:var(--sun-soft); border-color:var(--sun-soft); }
+.bubble img { max-width:100%; border-radius:10px; margin-top:6px; display:block; }
+.meta { font-size:11px; color:var(--muted); margin-top:3px; }
+.bubble-row.mine .meta { text-align:right; }
+.compose { display:flex; gap:8px; align-items:flex-end; margin-top:10px; }
+.compose textarea { min-height:52px; }
+.preset-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+.preset-btn { font-size:12px; padding:6px 11px; border-radius:999px; border:1.5px solid var(--border); background:#fff; color:var(--text); cursor:pointer; }
+table { width:100%; border-collapse:collapse; font-size:13.5px; }
+th, td { text-align:left; padding:9px 6px; border-bottom:1px solid var(--border); vertical-align:top; }
+th { font-size:12px; color:var(--muted); font-weight:700; }
+
+/* ---- リーダー用の入り口（ホーム） ---- */
+.homegrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.homecard { display:block; width:100%; text-align:left; background:#fff; border:1.5px solid var(--border); border-radius:14px; padding:16px; text-decoration:none; color:var(--text); cursor:pointer; font-family:inherit; font-size:14px; }
+.homecard:hover { border-color:var(--blue); background:#FFFAF3; }
+.homecard .ico { font-size:26px; line-height:1; }
+.homecard .nm { font-weight:700; font-size:16px; margin-top:8px; }
+.homecard .ds { font-size:12.5px; color:var(--muted); margin-top:4px; line-height:1.5; }
+
+/* ---- 業務日誌 ---- */
+.logwrap { margin:0 -4px; }
+.logtable { font-size:13px; table-layout:fixed; width:100%; }
+.logtable th, .logtable td { padding:7px 5px; }
+.logtable tr.sun td { background:#FDF1EE; }
+.logtable tr.sat td { background:#F0F4FA; }
+.logtable tr.today td { background:#FFF3DE; }
+.logtable th.d, .logtable td.d { width:52px; font-weight:700; line-height:1.25; }
+.logtable td.d .wd { font-weight:400; font-size:11px; color:var(--muted); }
+.logtable tr.sun td.d, .logtable tr.sun td.d .wd { color:var(--danger); }
+.logtable tr.sat td.d .wd { color:#4A6FA5; }
+.logtable td.d .hol { display:block; font-size:9.5px; font-weight:700; color:var(--danger); line-height:1.2; margin-top:1px; }
+.logtable th.c, .logtable td.c { width:140px; color:var(--blue-dark); font-weight:700; font-size:12px; }
+.logtable td.t { white-space:pre-wrap; word-break:break-word; }
+.logtable tr.has { cursor:pointer; }
+.logtable tr:hover td { background:#FFF7EC; }
+.catinline { display:none; color:var(--blue-dark); font-weight:700; font-size:11.5px; }
+/* ---- 市内出張だけ色を変える ---- */
+.logtable tr.trip td { background:#E7F1EE; }
+.logtable tr.trip td.d { box-shadow: inset 3px 0 0 var(--success); }
+.trip-tag { color:var(--success); font-weight:700; }
+.chip.trip.on { border-color:var(--success); background:var(--success); color:#fff; }
+.tripsum { margin-top:10px; padding:10px 12px; background:#E7F1EE; border:1px solid var(--success); border-radius:10px; font-size:13px; line-height:1.6; }
+.tripsum b { color:var(--success); font-size:15px; }
+.catbox { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+
+/* ---- リーダー設定 ---- */
+.kv { display:flex; gap:10px; align-items:baseline; padding:8px 2px; border-bottom:1px solid var(--border); }
+.kv b { font-size:12px; color:var(--muted); font-weight:700; width:96px; flex-shrink:0; }
+.big { font-size:21px; font-weight:700; letter-spacing:.1em; word-break:break-all; }
+
+/* ---- 印刷（1か月で1枚の報告書） ---- */
+#printArea { display:none; }
+@media print {
+  #app { display:none !important; }
+  #printArea { display:block !important; }
+  @page { size: A4 portrait; margin: 10mm 10mm; }
+  body { background:#fff; }
+}
+.sheet { width:190mm; margin:0 auto 8mm; page-break-after:always; color:#000; font-size:9pt; }
+.sheet:last-child { page-break-after:auto; }
+.sheet .shead { display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #000; padding-bottom:3mm; margin-bottom:3mm; }
+.sheet .stitle { font-size:16pt; font-weight:700; letter-spacing:.3em; }
+.sheet .sright { text-align:right; font-size:9pt; }
+.sheet .sright img { height:9mm; vertical-align:middle; margin-right:2mm; }
+.sheet .sinfo { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:2mm; font-size:10pt; }
+.sheet .stamps { display:flex; gap:0; }
+.sheet .stamps div { width:16mm; height:16mm; border:1px solid #000; font-size:7pt; text-align:center; padding-top:1mm; }
+.sheet table { width:100%; border-collapse:collapse; }
+.sheet th, .sheet td { border:1px solid #000; padding:0.8mm 1.5mm; font-size:8.5pt; vertical-align:top; line-height:1.35; }
+.sheet th { background:#eee; text-align:center; font-weight:700; }
+.sheet td.pd { text-align:center; width:8mm; }
+.sheet td.pw { text-align:center; width:8mm; }
+.sheet td.pc { width:34mm; }
+.sheet td.pt { white-space:pre-wrap; word-break:break-word; }
+.sheet tr.psun td { background:#f7f7f7; }
+.sheet tr.psun td.pd, .sheet tr.psun td.pw { color:#C0392B; font-weight:700; }
+.sheet tr.ptrip td { background:#EAF0EE; }
+.sheet tr.ptrip td.pc { font-weight:700; }
+.sheet td.pw { position:relative; }
+.sheet td.pw .phol { display:block; font-size:5.5pt; font-weight:400; line-height:1.1; white-space:nowrap; }
+.sheet td.pw { width:11mm; }
+.sheet .sfoot { margin-top:3mm; border:1px solid #000; min-height:22mm; padding:2mm; font-size:8.5pt; white-space:pre-wrap; }
+.sheet .sfoot b { font-size:8pt; }
+@media (max-width: 620px) {
+  .grid2 { grid-template-columns:1fr; }
+  .filters { grid-template-columns:1fr; }
+  .homegrid { grid-template-columns:1fr; }
+  .hide-narrow { display:none; }
+  main { padding:10px; }
+  .card { padding:13px; }
+  /* 日誌の表は、せまい画面では「日」と「内容」の2列にして、
+     区分は内容のうえに小さく出します（内容を広く読むため） */
+  .logtable th.c, .logtable td.c { display:none; }
+  .catinline { display:block; margin-bottom:2px; }
+  .logtable { font-size:12.5px; }
+  .logtable th, .logtable td { padding:7px 3px; }
+  .logtable th.d, .logtable td.d { width:54px; font-size:12px; }
+  .logtable td.d .hol { font-size:9px; letter-spacing:-.03em; }
+}
+</style>
+</head>
+<body>
+<div id="app"><div class="center-screen"><div class="card login-card">
+  <div style="width:52px;height:52px;border-radius:50%;background:#E8873A;box-shadow:0 0 0 8px #F7DDBF;margin:4px auto 16px;"></div>
+  <h1>アシスト</h1>
+  <p class="sub">株式会社ホームメンテナンス<br>読み込み中です…</p>
+</div></div></div>
+<div id="printArea"></div>
+<script>
+/* =========================================================
+アシスト リーダー用（アシスト労務 閲覧用のURLで開きます）
+・この1枚に3つをまとめています
+① アシスト労務（閲覧用）… 従業員／お休み／チャット
+② アシストカレンダー … 別のタブで開きます（中身は読み込みません）
+③ 業務日誌 … 1か月で1枚の報告書になります
+・データは本体アプリと同じ Firebase を見ています。
+・リーダーさんができること
+- 従業員データを見る（住所は町名まで／給与・口座などは出しません）
+- 会社用メモ（社内用）に書き込む
+- お休みの申請一覧を見る（決裁・否決は本社だけ）
+- 個人チャットを読んで、返信する（一斉送信は本社だけ）
+- 業務日誌を書く（自分が書いたものだけ見えます）
+・本社の管理者メールでログインすると、全員の業務日誌が見られます。
+・ログインID＝その方の8桁ログインID。パスワードは本社が発行します。
+・従業員画面に出す項目は VIEWER_FIELDS で決めています。増やしたいときは
+ここに1行足すだけです（例：["emergencyContact", "緊急連絡先"]）。
+・業務日誌の「区分」は本社が画面から直せます（下の LOG_COL の中に保存）。
+========================================================= */
+const APP_VERSION = "リーダー用 2026-09-29(11)";
+
+/* ---------- 社長用（見るだけ） ----------
+社長用の入口（shacho.html）から ?view=shacho 付きで開いたときだけ、
+カードの合言葉で自動ログインします。ID・パスワードの入力はありません。
+書き込み（会社用メモ・チャット返信・日誌・設定）はすべて出しません。
+Firestore のルールでも presidents に登録された人は読むだけにしています。 */
+const SHACHO = new URLSearchParams(location.search).get("view") === "shacho";
+const SHACHO_EMAIL = "shacho@president.assist-roumu.jp";
+const SHACHO_HOME = "https://hminfokeiri-hue.github.io/assist-roumu/shacho.html";
+function shachoKey() { try { return localStorage.getItem("assistShachoKey") || ""; } catch (e) { return ""; } }
+function isShacho() { return !!(state.user && state.user.isShacho); }
+/* 社長用は入口のボタンで2つに分けて開きます（重複しないように）
+   ・業務日誌ボタン（tab=log）… 業務日誌だけ。ほかのタブは出しません
+   ・アシスト労務ボタン … 従業員・お休み・チャット・面接。業務日誌のタブは出しません */
+const SHACHO_LOG_ONLY = SHACHO && new URLSearchParams(location.search).get("tab") === "log";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD1bprw7Xb6ZisnOkRKMlul_iW-rLvzf28",
+  authDomain: "assist-roumu.firebaseapp.com",
+  projectId: "assist-roumu",
+  storageBucket: "assist-roumu.firebasestorage.app",
+  messagingSenderId: "919904591114",
+  appId: "1:919904591114:web:33d30e66ea4264e081eef3"
+};
+
+/* アシストカレンダーは「リンクで開くだけ」です。中身をこの画面に読み込まないので、
+このページが重くなることはありません。 */
+const CALENDAR_URL = "https://hminfokeiri-hue.github.io/assist-calendar/";
+
+/* 業務日誌をしまう場所（Firestoreのコレクション名） */
+const LOG_COL = "workLogs";
+const LOG_SETTINGS_DOC = "__settings";
+const TRIP_CAT = "市内出張";   // この区分だけ色を変えて、月の日数を数えます
+const DEFAULT_LOG_CATS = [
+  "現場巡回", "市内出張", "打合せ・見積", "採用・面接", "研修・指導", "応援作業",
+  "事務・書類", "クレーム対応", "資材・車両", "社内会議", "その他"
+];
+
+const VIEWER_FIELDS = [
+  ["furigana", "フリガナ"],
+  ["phone", "電話番号"],
+  ["hireDate", "入社日"],
+  ["area", "エリア"],
+  ["workplace", "就業場所（現場）"],
+  ["weeklyDays", "週の勤務日数"],
+  ["workHours", "就業時間"],
+  ["holiday", "休日"],
+  ["jobType", "業務の種類"]
+];
+
+const WEEKDAY_FIELDS = [
+  ["shiftMon","月"],["shiftTue","火"],["shiftWed","水"],["shiftThu","木"],
+  ["shiftFri","金"],["shiftSat","土"],["shiftSun","日"]
+];
+
+/* 有給の付与日数（本体アプリと同じ計算です） */
+const GRANT_TABLE = {
+  1: [1, 2, 2, 3, 3, 3, 3],
+  2: [3, 4, 4, 5, 6, 6, 7],
+  3: [5, 6, 6, 8, 9, 10, 11],
+  4: [7, 8, 9, 10, 12, 13, 15],
+  5: [10, 11, 12, 14, 16, 18, 20]
+};
+function monthsBetween(hireDateStr, now) {
+  const hire = new Date(hireDateStr);
+  return (now.getFullYear() - hire.getFullYear()) * 12 + (now.getMonth() - hire.getMonth());
+}
+function calcAnnualGrant(hireDateStr, weeklyDays) {
+  if (!hireDateStr || !weeklyDays) return 0;
+  const months = monthsBetween(hireDateStr, new Date());
+  if (months < 6) return 0;
+  let bracket = Math.floor((months - 6) / 12) + 1;
+  bracket = Math.min(bracket, 7) - 1;
+  const table = GRANT_TABLE[weeklyDays] || GRANT_TABLE[4];
+  return table[Math.max(0, Math.min(bracket, table.length - 1))];
+}
+function usedPaidLeaveFor(empId) {
+  return (state.leaves || [])
+    .filter(r => r.employeeId === empId && r.type === "有給休暇" && r.status !== "rejected")
+    .reduce((sum, r) => sum + (typeof r.days === "number" ? r.days : 1), 0);
+}
+function remainingLeaveFor(emp) {
+  const remaining = calcAnnualGrant(emp.hireDate, emp.weeklyDays) - usedPaidLeaveFor(emp.id);
+  return remaining >= 0 ? Math.round(remaining * 10) / 10 : 0;
+}
+
+const PRESET_PHRASES = ["承知しました", "確認します", "少々お待ちください", "対応しました", "ありがとうございます"];
+
+/* 報告書の右上に入れる会社ロゴ（出勤表と同じものです） */
+const HPM_LOGO = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAA0JCgsKCA0LCwsPDg0QFCEVFBISFCgdHhghMCoyMS8qLi00O0tANDhHOS0uQllCR05QVFVUMz9dY1xSYktTVFH/2wBDAQ4PDxQRFCcVFSdRNi42UVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVH/wAARCAA7AGcDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD06vLviVqV/aeI4o7a9uIENspKxysozubnANeo15J8U/8AkaIv+vVf/QmoAm+HOpahd+JxFc31zNH5LnbJKzDPHYmvVa8S8Fara6NrT3t2xEaQOAFGSxOMAVsXnxM1WSYm0tbaGLsHBdvxOR/KgD1WiuF8KePjql9HYalDHDNIcRyR52sfQg9Kqa38QtQ07WbuyjsrZ0gkKBmLZIH40Aei0V5/bfEhBoslzdW0ZvDKUjgiJAIwDuJPQZNYr/ErXDLuWGzVf7uxj+u6gD1qiuL0n4h2Fxpc9xqC/Z7iEDMSc+Znpt/zxXO3nxM1WSYm1tbaGLPAYF2/E5H8qAPVqK4bwp4+Oq3yWGowRwzScRyR52sfQg9DXc0AFFFFABXknxT/AORoi/69V/8AQmr1uvJPin/yNEX/AF6r/wChNQBzej6e2p6glsBIVwWfyk3vtHJwO5rb8UeGrXS7MXVkt+qKyK4u4wAdykjaRjpjBHY1U8H7P7RuvM8vZ9lfPmbtvUddvzflW/4sMP8AYd35X2fO+2z5Xm5+4cZ38fTH480AcPaSNDeQSocMkisD7g1peLf+Rq1P/r4b+dZUX+uT/eFavi3/AJGrU/8Ar4b+dAx/hvSrPUJpZNRnnitIsAmCJnZmOcDgHHQ84pniTTLTTb2P7BNLLazJvQzIUcckEEED064rS8KypFpV6XmSIGaLl7p7fPyv3UHP0qDxdIsn9nssiyDym+Zbhph98/xNzQIydIsV1HU4bV51gjYkvK/RFAJJ/IVv+K/DelaXZR3Ol6l9pIKiSNnViAwyrDHY/wBaoeDYpJvEMcUMUM0jRShY5xlGOxuG9q6Xxtbz2+jN59ppsGfIUG2GJCQuCD/sjoPbFAHCWcrQ3sEqHDJIrA+4NfQ9fOsP+uj/AN4fzr6KHSgAooooAr3t/Z2EPm3lzFAnrIwGa8g8f6pZavr6XFhN50SwLGW2kcgse/1Feutp1i8xmktIZJT/AMtHQM35mpTa25XaYIiPTYKAPDvDWow6ZfzTzPKoaBkUxOUbJx0YA4+uK6TxPqEN/wCHLiSG5aVDJBtDXYlxhTn5cArz1PfrXfXnhvRL0EXGmWxJ/iVArfmMGuS1j4aQOrSaTctE/wDzym5U/Ruo/WgDzWL/AFyf7wrV8W/8jVqf/Xw386rX2mXuk36299btDIGBGejDPUHoRVjxYc+KdTI/57t/OgZt+B4ruXTdQFmt0zCWMt9nmSMgYfqXBGKy/FV/He3FuqyzSPAjI5lkWQ53E/eUAH8KZ4fg1nUUn0rStwiuCpnYcKAM43N6cnjvXaaV4b0fSFnVUXVtXt4/MMbKdg6fdGME4IPc/SgRw+k6HrV8RLYW0yqflExPlrzxjccVrjwUIZGXVNctLaQKHZUBkYAnHt3ruTpOt6oF+33i2kQz+6gH5cdODyD7DjrV+18MaTbIqi28zHdznPCjp0/hFAHnv/CMeHkO1tbuZCGCkpb4HJK5GeoyCMjPSrmnxRWS+Zp3ie/t1VPMKzQbkC7dw+XdzkHsDXo6WdqmNltCuPRB7/4n86eYIWGDChGMcqOnSgDN0S71C4tUkuRBPG2Qs0IKE4OOUbp07GitSONIoxHGioi8BVGAKKAHUUUUAFFFFAFLVtJstYs2tb2ESIeh/iU+oPY15beeB7+31t4J5SLBVMrXpGQIx1z/ALXt/SvX6CARgjIoA4fTYzd2yaRolu9nYKR58+cNJ153A8hgFwR/e64BFdTpej2WlRBbaFBIRhpNoDN/gPYcVatbeG1gWG3jWONc4VRgDvUtABRRRQAUUUUAFFFFAH//2Q==";
+
+/* リーダーさんのログインは、裏側でこの形のメールアドレスに変換しています。
+（リーダーさんはこのアドレスを見ることも入力することもありません）
+パスワードを作り直すと番号が1つ増えて、古いほうは使えなくなります。 */
+const LEADER_MAIL_DOMAIN = "leader.assist-roumu.jp";
+function leaderEmail(loginId, version) {
+  const v = Number(version) || 1;
+  return v <= 1 ? `${loginId}@${LEADER_MAIL_DOMAIN}` : `${loginId}.v${v}@${LEADER_MAIL_DOMAIN}`;
+}
+
+function ymdToday() {
+  const d = new Date(), p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+let db = null;
+const state = {
+  user: null,            // { name, isAdmin, employeeId, uid }
+  tab: "home",           // home / emp / leave / chat / log
+  employees: [], leaves: [], messages: [], interviews: [],
+  empId: null,
+  search: "", area: "", sort: "code",
+  leaveStatus: "pending", leaveArea: "",
+  showPastLeave: false, pastLeaveSearch: "",
+  chatEmpId: null, chatSearch: "", chatDraft: "",
+  loading: false, busy: false,
+  notesDraft: null,
+  /* ---- 業務日誌 ---- */
+  logYm: ymdToday().slice(0, 7),
+  logs: [],              // 選んだ月に読み込んだ日誌
+  logLoaded: "",         // 読み込みが済んだ年月（空なら未読込）
+  logLoading: false,
+  logWho: "",            // 本社が見ている「書いた人」（空＝自分）
+  logDate: ymdToday(),
+  logCats: [],           // 入力中の区分
+  logText: "",
+  logCatMaster: null,    // 区分の親リスト
+  logCatEdit: false,
+  /* ---- リーダー設定（本社だけ） ---- */
+  setupEmpId: null,
+  setupSearch: "",
+  setupLoginId: "",
+  setupPw: "",
+  setupShowPw: true,
+  setupDone: null,
+  secrets: {},           // パスワードのひかえ（本社だけ読めます）
+  secretsLoaded: false,
+  secretsLoading: false,
+  secretsError: "",
+  showSecretFor: null
+};
+const appEl = document.getElementById("app");
+const printEl = document.getElementById("printArea");
+
+/* このページ専用の入れ物（名前つき）で動かします。
+名前を付けずに使うと、同じ hminfokeiri-hue.github.io の中にある
+アシスト労務（本体）や信号板と「ログインの記録」を共有してしまい、
+このページでログイン／ログアウトしただけで、本体のログインまで
+消えてしまいます。名前を分けることで、おたがいに影響しません。 */
+let viewerApp = null;
+/* リーダーさんのログインを作るときだけ使う、もうひとつの入れ物。
+これを分けておかないと、作った本人にログインが切り替わってしまいます。 */
+let subApp = null;
+/* Firebaseの部品は「defer」で読み込むので、画面を先に出してから準備します。 */
+function startFirebase() {
+  if (viewerApp) return true;
+  if (!window.firebase) return false;
+  viewerApp = firebase.initializeApp(firebaseConfig, SHACHO ? "shacho" : "viewer");
+  db = viewerApp.firestore();
+  if (SHACHO) {
+    /* 社長用だけ：前に読んだ内容をスマホに残しておき、2回目からはすぐ出します
+       （そのあと最新の内容に入れかわります）。うまく使えないときは、ふつうに読みます。 */
+    try { db.enablePersistence({ synchronizeTabs: true }).catch(() => {}); } catch (e) { /* 何もしない */ }
+  }
+  subApp = firebase.initializeApp(firebaseConfig, "maker");
+  return true;
+}
+
+/* ---------- 小さな道具 ---------- */
+function esc(s) {
+  return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function parseDate(v) {
+  if (!v) return null;
+  const d = new Date(String(v).replace(/[年月]/g, "-").replace(/日/g, ""));
+  return isNaN(d) ? null : d;
+}
+function calcAge(birth) {
+  const b = parseDate(birth);
+  if (!b) return null;
+  const t = new Date();
+  let age = t.getFullYear() - b.getFullYear();
+  const m = t.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && t.getDate() < b.getDate())) age--;
+  return age;
+}
+function shiftSummary(e) {
+  const days = WEEKDAY_FIELDS.filter(([k]) => (e[k] || "").trim()).map(([, l]) => l);
+  return days.length ? days.join("・") : (e.shiftDays || "");
+}
+/* 住所は町名まで。数字（丁目・番地）が出てきたところから先は出しません。 */
+function viewerAddress(e) {
+  let a = String((e && e.address) || "").trim();
+  a = a.replace(/^\d{3}-?\d{4}\s*/, "");
+  const cut = a.search(/[0-9０-９]|[一二三四五六七八九十百]+丁目/);
+  if (cut > 0) a = a.slice(0, cut);
+  return a.replace(/[\s -]+$/, "");
+}
+function tsSeconds(ts) {
+  if (!ts) return 0;
+  if (ts.seconds) return ts.seconds;
+  const d = new Date(ts);
+  return isNaN(d) ? 0 : Math.floor(d.getTime() / 1000);
+}
+function fmtStamp(ts) {
+  const sec = tsSeconds(ts);
+  if (!sec) return "";
+  const d = new Date(sec * 1000);
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+}
+function fmtChatTime(ts) {
+  const sec = tsSeconds(ts);
+  if (!sec) return "";
+  return new Date(sec * 1000).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+function authErrorMessage(e) {
+  return {
+    "auth/invalid-email": "ログインIDまたはパスワードが正しくありません",
+    "auth/user-not-found": "ログインIDまたはパスワードが正しくありません",
+    "auth/wrong-password": "ログインIDまたはパスワードが正しくありません",
+    "auth/invalid-credential": "ログインIDまたはパスワードが正しくありません",
+    "auth/weak-password": "パスワードは6文字以上にしてください",
+    "auth/email-already-in-use": "この番号はすでに使われています。「パスワードを作り直す」を押してください",
+    "auth/too-many-requests": "試行回数が多すぎます。しばらく待ってからお試しください",
+    "auth/network-request-failed": "ネットワークに接続できませんでした"
+  }[e.code] || ("うまくいきませんでした: " + e.message);
+}
+
+/* このスマホに保存したパスワードを消す */
+function forgetSavedPass() {
+  if (!confirm("このスマホに保存したパスワードを消します。よろしいですか？")) return;
+  try { localStorage.removeItem("assistViewerPass"); } catch (e) { /* 何もしない */ }
+  const box = document.getElementById("pass");
+  if (box) box.value = "";
+  render();
+  alert("消しました。");
+}
+
+/* ---------- ログイン ---------- */
+async function handleLogin() {
+  if (!viewerApp) return alert("読み込み中です。少し待ってから、もう一度押してください。");
+  const idRaw = (document.getElementById("loginId").value || "").trim();
+  const pass = document.getElementById("pass").value;
+  if (!idRaw || !pass) return alert("ログインIDとパスワードを入力してください");
+
+  const remember = document.getElementById("remember");
+  if (remember && remember.checked) localStorage.setItem("assistViewerId", idRaw);
+  else localStorage.removeItem("assistViewerId");
+  // パスワードの保存は別のチェックです（人と共有しているスマホでは入れないでください）
+  const rememberPass = document.getElementById("rememberPass");
+  try {
+    if (rememberPass && rememberPass.checked) localStorage.setItem("assistViewerPass", pass);
+    else localStorage.removeItem("assistViewerPass");
+  } catch (e) { /* 何もしない */ }
+
+  state.loading = true; render();
+  try {
+    if (idRaw.includes("@")) {
+      const cred = await viewerApp.auth().signInWithEmailAndPassword(idRaw, pass);
+      const a = await db.collection("admins").doc(cred.user.uid).get();
+      if (!a.exists) {
+        await viewerApp.auth().signOut();
+        state.loading = false; render();
+        return alert("このアカウントでは入れません。本社にお問い合わせください。");
+      }
+      state.user = { name: (a.data() || {}).name || idRaw, isAdmin: true, uid: cred.user.uid };
+      return subscribeAll();
+    }
+
+    const loginId = idRaw.replace(/[^\d]/g, "");
+    await viewerApp.auth().signInAnonymously();
+    const snap = await db.collection("employees").where("loginId", "==", loginId).limit(1).get();
+    if (snap.empty) { state.loading = false; render(); return alert("ログインIDまたはパスワードが正しくありません"); }
+    const emp = { id: snap.docs[0].id, ...snap.docs[0].data() };
+    if (!emp.viewerEnabled) {
+      state.loading = false; render();
+      return alert("このログインIDでは閲覧用ページをご利用いただけません。本社にお問い合わせください。");
+    }
+    const cred = await viewerApp.auth().signInWithEmailAndPassword(leaderEmail(loginId, emp.viewerAuthVersion), pass);
+    const v = await db.collection("viewers").doc(cred.user.uid).get();
+    if (!v.exists) {
+      await viewerApp.auth().signOut();
+      state.loading = false; render();
+      return alert("このログインIDでは閲覧用ページをご利用いただけません。本社にお問い合わせください。");
+    }
+    state.user = { name: (v.data() || {}).name || emp.name || loginId, isAdmin: false, employeeId: emp.id, uid: cred.user.uid };
+    subscribeAll();
+  } catch (e) {
+    state.loading = false; render();
+    alert(authErrorMessage(e));
+  }
+}
+
+function logout() {
+  state.user = null; state.employees = []; state.leaves = []; state.messages = [];
+  state.empId = null; state.chatEmpId = null; state.tab = "home";
+  state.loading = false; state.notesDraft = null;
+  state.logs = []; state.logLoaded = ""; state.logWho = ""; state.logCatMaster = null;
+  state.logCats = []; state.logText = ""; state.logCatEdit = false;
+  state.setupEmpId = null; state.setupSearch = ""; state.setupLoginId = ""; state.setupPw = "";
+  state.setupDone = null; state.secrets = {}; state.secretsLoaded = false;
+  state.secretsError = ""; state.showSecretFor = null;
+  if (viewerApp) viewerApp.auth().signOut().catch(() => {});
+  render();
+}
+
+/* 社長用：必要なものだけを、順番に読みます（重いチャットは最後）。
+・業務日誌ボタン … 日誌を書く人の名前だけ読みます（チャット・お休み・面接は読みません）
+・アシスト労務ボタン … まず従業員を出して、そのあとお休み・面接・チャットを読みます */
+function subscribeShacho() {
+  if (SHACHO_LOG_ONLY) {
+    /* 日誌はすぐ読みはじめます（名前の一覧は、あとから届いたら入れかえます） */
+    state.loading = false;
+    render();
+    db.collection("employees").where("viewerEnabled", "==", true).onSnapshot(snap => {
+      state.employees = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(e => e.status !== "resigned");
+      state.loading = false;
+      render();
+    }, err => { state.loading = false; render(); });
+    return;
+  }
+  let restStarted = false;
+  db.collection("employees").onSnapshot(snap => {
+    state.employees = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(e => e.status !== "resigned");
+    state.loading = false;
+    render();
+    if (restStarted) return;
+    restStarted = true;
+    db.collection("leaveRequests").onSnapshot(s2 => {
+      state.leaves = s2.docs.map(d => ({ id: d.id, ...d.data() }));
+      render();
+    }, err => console.error("leaveRequests購読エラー", err));
+    db.collection("interviews").onSnapshot(s3 => {
+      state.interviews = s3.docs.map(d => ({ id: d.id, ...d.data() }));
+      render();
+    }, err => console.error("interviews購読エラー", err));
+    db.collection("messages").onSnapshot(s4 => {
+      state.messages = s4.docs.map(d => ({ id: d.id, ...d.data() }));
+      render();
+    }, err => console.error("messages購読エラー", err));
+  }, err => { state.loading = false; render(); console.error("employees購読エラー", err); });
+}
+
+function subscribeAll() {
+  if (isShacho()) return subscribeShacho();
+  db.collection("employees").onSnapshot(snap => {
+    state.employees = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(e => e.status !== "resigned"); // 退職者はこのページに出しません
+    state.loading = false;
+    render();
+  }, err => { state.loading = false; render(); alert("従業員データを読み込めませんでした: " + err.message); });
+
+  db.collection("leaveRequests").onSnapshot(snap => {
+    state.leaves = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => console.error("leaveRequests購読エラー", err));
+
+  db.collection("messages").onSnapshot(snap => {
+    state.messages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => console.error("messages購読エラー", err));
+
+  db.collection("interviews").onSnapshot(snap => {
+    state.interviews = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => console.error("interviews購読エラー", err));
+}
+
+/* ---------- 会社用メモ（社内用）の書き込み ---------- */
+/* 本体アプリの従業員データにある「会社用メモ（社内用）」に入ります。
+   書類に印刷される「備考」には入りません。 */
+async function saveNotes(id) {
+  if (isShacho()) return;
+  const box = document.getElementById("notesBox");
+  if (!box) return;
+  const companyMemo = box.value;
+  state.busy = true; render();
+  try {
+    await db.collection("employees").doc(id).update({
+      companyMemo,
+      companyMemoUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      companyMemoUpdatedBy: state.user.name || ""
+    });
+    state.notesDraft = null;
+    state.busy = false; render();
+    alert("会社用メモを保存しました");
+  } catch (e) {
+    state.busy = false; render();
+    alert("保存できませんでした: " + e.message);
+  }
+}
+
+/* ---------- チャット ---------- */
+function threadOf(empId) {
+  return (state.messages || [])
+    .filter(m => m.employeeId === empId && !m.broadcastId)
+    .sort((a, b) => tsSeconds(a.createdAt) - tsSeconds(b.createdAt));
+}
+/* 未読は readByViewer で数えます。本社側の未読（readByOffice）には触りません。 */
+function unreadOf(empId) {
+  if (isShacho()) return (state.messages || []).filter(m => m.employeeId === empId && shachoUnreadMsg(m)).length;
+  return (state.messages || []).filter(m => m.employeeId === empId && m.senderRole === "staff" && !m.readByViewer && !m.broadcastId).length;
+}
+function totalUnread() {
+  if (isShacho()) return (state.messages || []).filter(m => shachoUnreadMsg(m)).length;
+  return (state.messages || []).filter(m => m.senderRole === "staff" && !m.readByViewer && !m.broadcastId).length;
+}
+
+/* ---------- 社長用の既読 ----------
+社長が読んでも、リーダーさんや本社の未読（readByViewer / readByOffice）は変えません。
+社長の既読は、社長のスマホの中にだけ「この人のチャットをいつまで読んだか」を覚えます。
+はじめて使う日より前のメッセージは、読んだものとして扱います。 */
+const SHACHO_READ_KEY = "assistShachoChatRead";
+function shachoReadData() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(SHACHO_READ_KEY) || "null"); } catch (e) { d = null; }
+  if (!d || typeof d !== "object" || !d.base) {
+    d = { base: Math.floor(Date.now() / 1000), seen: {} };
+    try { localStorage.setItem(SHACHO_READ_KEY, JSON.stringify(d)); } catch (e) {}
+  }
+  if (!d.seen) d.seen = {};
+  return d;
+}
+function shachoMarkRead(empId) {
+  const d = shachoReadData();
+  let last = Math.floor(Date.now() / 1000);
+  (state.messages || []).forEach(m => {
+    if (m.employeeId === empId) last = Math.max(last, tsSeconds(m.createdAt));
+  });
+  d.seen[empId] = last;
+  try { localStorage.setItem(SHACHO_READ_KEY, JSON.stringify(d)); } catch (e) {}
+}
+function shachoUnreadMsg(m) {
+  if (m.senderRole !== "staff" || m.broadcastId) return false;
+  const d = shachoReadData();
+  const t = tsSeconds(m.createdAt);
+  if (state.tab === "chat" && state.chatEmpId === m.employeeId) {
+    // いま開いている相手は既読。開いている間に届いた分も読んだことにする
+    if (t && t > (d.seen[m.employeeId] || 0)) {
+      d.seen[m.employeeId] = t;
+      try { localStorage.setItem(SHACHO_READ_KEY, JSON.stringify(d)); } catch (e) {}
+    }
+    return false;
+  }
+  if (!t) return false;
+  return t > Math.max(d.base, d.seen[m.employeeId] || 0);
+}
+async function openThread(empId) {
+  state.chatEmpId = empId;
+  state.chatDraft = "";
+  render();
+  if (isShacho()) {
+    shachoMarkRead(empId);
+    render();
+    const b = document.getElementById("chatScroll"); if (b) b.scrollTop = b.scrollHeight;
+    return;
+  }
+  const unread = (state.messages || []).filter(m => m.employeeId === empId && m.senderRole === "staff" && !m.readByViewer && !m.broadcastId);
+  for (const m of unread) {
+    try { await db.collection("messages").doc(m.id).update({ readByViewer: true }); } catch (e) { /* 何もしない */ }
+  }
+  const box = document.getElementById("chatScroll");
+  if (box) box.scrollTop = box.scrollHeight;
+}
+function insertPreset(text) {
+  const el = document.getElementById("chatInput");
+  if (el) {
+    el.value = el.value ? el.value + " " + text : text;
+    state.chatDraft = el.value;
+    el.focus();
+  }
+}
+async function sendReply(empId) {
+  if (isShacho()) return;
+  const el = document.getElementById("chatInput");
+  const text = (el ? el.value : "").trim();
+  if (!text) return alert("メッセージを入力してください");
+  const emp = state.employees.find(e => e.id === empId) || {};
+  state.busy = true; render();
+  try {
+    await db.collection("messages").add({
+      employeeId: empId,
+      employeeName: emp.name || "",
+      area: emp.area || "",
+      senderRole: "office",                            // パートさんの画面では「会社から」の扱いになります
+      senderName: state.user.name || "本社",           // 誰が返したかが相手にも残ります
+      text, photoURL: null,
+      readByStaff: false,
+      readByOffice: state.user.isAdmin ? true : false, // リーダーの返信は本社側にも見えるよう未読で残します
+      readByViewer: true,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    state.chatDraft = "";
+    state.busy = false; render();
+    const box = document.getElementById("chatScroll");
+    if (box) box.scrollTop = box.scrollHeight;
+  } catch (e) {
+    state.busy = false; render();
+    alert("送信できませんでした: " + e.message);
+  }
+}
+
+/* =========================================================
+業務日誌（1か月で1枚の報告書）
+・1日に1行です。区分（えらぶ）＋内容（書く）だけ。写真はありません。
+・書いた人は自分の分だけ。本社の管理者メールで入ると全員分が見えます。
+・データは Firestore の "workLogs" に入ります。
+書類の名前（ID）は「2026-09-14_E○○○」の形です。
+========================================================= */
+const WD = ["日", "月", "火", "水", "木", "金", "土"];
+
+/* ---- 日本の祝日（内閣府の決め方どおりに計算します） ----
+・春分・秋分は計算式（1980〜2099年まで正しい値になります）
+・日曜と重なった祝日は、次の平日が「振替休日」
+・祝日にはさまれた平日は「国民の休日」（例：2026年9月22日）
+※オリンピックのときのような臨時の祝日は入っていません。
+法律が変わったときは、この関数を直せば全部の画面に反映されます。 */
+const HOLIDAY_CACHE = {};
+function jpHolidays(y) {
+  if (HOLIDAY_CACHE[y]) return HOLIDAY_CACHE[y];
+  const p = n => String(n).padStart(2, "0");
+  const key = (m, d) => y + "-" + p(m) + "-" + p(d);
+  const nthMonday = (m, n) => {
+    const first = new Date(y, m - 1, 1).getDay();
+    return 1 + ((1 - first + 7) % 7) + (n - 1) * 7;
+  };
+  const shunbun = Math.floor(20.8431 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4));
+  const shubun  = Math.floor(23.2488 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4));
+  const h = {};
+  h[key(1, 1)] = "元日";
+  h[key(1, nthMonday(1, 2))] = "成人の日";
+  h[key(2, 11)] = "建国記念の日";
+  h[key(2, 23)] = "天皇誕生日";
+  h[key(3, shunbun)] = "春分の日";
+  h[key(4, 29)] = "昭和の日";
+  h[key(5, 3)] = "憲法記念日";
+  h[key(5, 4)] = "みどりの日";
+  h[key(5, 5)] = "こどもの日";
+  h[key(7, nthMonday(7, 3))] = "海の日";
+  h[key(8, 11)] = "山の日";
+  h[key(9, nthMonday(9, 3))] = "敬老の日";
+  h[key(9, shubun)] = "秋分の日";
+  h[key(10, nthMonday(10, 2))] = "スポーツの日";
+  h[key(11, 3)] = "文化の日";
+  h[key(11, 23)] = "勤労感謝の日";
+
+  /* 振替休日：日曜と重なったら、次の平日にずらす */
+  Object.keys(h).slice().forEach(k => {
+    const d = new Date(k.replace(/-/g, "/"));
+    if (d.getDay() !== 0) return;
+    const n = new Date(d);
+    do { n.setDate(n.getDate() + 1); } while (h[key(n.getMonth() + 1, n.getDate())]);
+    h[key(n.getMonth() + 1, n.getDate())] = "振替休日";
+  });
+
+  /* 国民の休日：祝日と祝日にはさまれた平日 */
+  const d = new Date(y, 0, 1);
+  while (d.getFullYear() === y) {
+    const k = key(d.getMonth() + 1, d.getDate());
+    if (!h[k] && d.getDay() !== 0) {
+      const a = new Date(d); a.setDate(a.getDate() - 1);
+      const b = new Date(d); b.setDate(b.getDate() + 1);
+      if (h[key(a.getMonth() + 1, a.getDate())] && h[key(b.getMonth() + 1, b.getDate())]) h[k] = "国民の休日";
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  HOLIDAY_CACHE[y] = h;
+  return h;
+}
+function holidayName(ymd) {
+  if (!ymd) return "";
+  return jpHolidays(Number(String(ymd).slice(0, 4)))[ymd] || "";
+}
+
+/* 自分が書いたものだと分かるようにする印。
+リーダーさん … E＋従業員データのID（パスワードを作り直しても変わりません）
+本社 … A＋ログインのID */
+function myAuthorId() {
+  if (!state.user) return "";
+  if (isShacho()) return "S";   // 社長は書かないので、自分の日誌はありません
+  return state.user.isAdmin ? ("A" + (state.user.uid || "")) : ("E" + (state.user.employeeId || ""));
+}
+/* いま画面に出している「書いた人」。本社が誰かを選んでいればその人。 */
+function shownAuthorId() {
+  if (!state.logWho && isShacho()) {
+    const w = logWriterOptions();
+    return w.length ? w[0].id : "";
+  }
+  return state.logWho || myAuthorId();
+}
+function authorNameOf(id) {
+  if (id === myAuthorId()) return state.user.name || "";
+  const hit = (state.logs || []).find(l => l.authorId === id && l.authorName);
+  if (hit) return hit.authorName;
+  if (id.charAt(0) === "E") {
+    const emp = state.employees.find(e => e.id === id.slice(1));
+    if (emp) return emp.name || "";
+  }
+  return "";
+}
+/* 本社が選べる「書いた人」の一覧 */
+function logWriterOptions() {
+  const out = [], seen = {};
+  const push = (id, name) => { if (id && !seen[id]) { seen[id] = 1; out.push({ id, name: name || "(名前なし)" }); } };
+  if (!isShacho()) push(myAuthorId(), (state.user.name || "") + "（自分）");
+  (state.logs || []).forEach(l => push(l.authorId, l.authorName));
+  (state.employees || []).filter(e => e.viewerEnabled).forEach(e => push("E" + e.id, e.name));
+  return out;
+}
+function daysInMonth(ym) {
+  const y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  return new Date(y, m, 0).getDate();
+}
+function reiwa(y) { return y - 2018; }
+function logEntry(authorId, date) {
+  return (state.logs || []).find(l => l.authorId === authorId && l.date === date) || null;
+}
+
+/* ---- 読み込み（日誌のタブを押したときだけ動きます） ---- */
+async function loadLogs(force) {
+  if (state.logLoading) return;
+  const ym = state.logYm;
+  state.logLoading = true; render();
+  try {
+    if (!state.logCatMaster) {
+      let cats = null;
+      try {
+        const c = await db.collection(LOG_COL).doc(LOG_SETTINGS_DOC).get();
+        if (c.exists && Array.isArray((c.data() || {}).cats) && c.data().cats.length) cats = c.data().cats;
+      } catch (e) { /* まだ書類がないだけなので気にしません */ }
+      state.logCatMaster = cats || DEFAULT_LOG_CATS.slice();
+      // 前に保存した区分に「市内出張」が入っていなければ、画面上で足しておきます
+      if (state.logCatMaster.indexOf(TRIP_CAT) < 0) state.logCatMaster.splice(1, 0, TRIP_CAT);
+    }
+    const snap = await db.collection(LOG_COL).where("ym", "==", ym).get();
+    state.logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    state.logLoaded = ym;
+  } catch (e) {
+    state.logLoaded = "";
+    alert("業務日誌を読み込めませんでした: " + e.message);
+  }
+  state.logLoading = false; render();
+}
+function ensureLogsLoaded() {
+  if (state.logLoading) return;
+  if (state.logLoaded === state.logYm && state.logCatMaster) return;
+  loadLogs();
+}
+function changeLogYm(ym) {
+  if (!ym) return;
+  state.logYm = ym; state.logLoaded = ""; state.logs = [];
+  render();
+}
+
+/* ---- 書く ---- */
+function toggleLogCat(c) {
+  const i = state.logCats.indexOf(c);
+  if (i >= 0) state.logCats.splice(i, 1); else state.logCats.push(c);
+  render();
+}
+function pickLogDay(date) {
+  const e = logEntry(myAuthorId(), date);
+  state.logDate = date;
+  state.logCats = e && Array.isArray(e.cats) ? e.cats.slice() : [];
+  state.logText = e ? (e.text || "") : "";
+  render();
+  const box = document.getElementById("logText");
+  if (box) box.focus();
+}
+async function saveLog() {
+  if (isShacho()) return;
+  const d = state.logDate;
+  if (!d) return alert("日付を選んでください");
+  if (d.slice(0, 7) !== state.logYm) {
+    if (!confirm(d.slice(0, 7) + " の日誌として保存します。よろしいですか？")) return;
+  }
+  const text = (state.logText || "").trim();
+  if (!text && !state.logCats.length) return alert("区分をえらぶか、内容を書いてください");
+  state.busy = true; render();
+  try {
+    await db.collection(LOG_COL).doc(d + "_" + myAuthorId()).set({
+      date: d,
+      ym: d.slice(0, 7),
+      authorId: myAuthorId(),
+      authorName: state.user.name || "",
+      cats: state.logCats.slice(),
+      text,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: state.user.name || ""
+    }, { merge: true });
+    state.busy = false;
+    state.logWho = "";
+    state.logLoaded = "";
+    state.logCats = []; state.logText = "";
+    await loadLogs();
+  } catch (e) {
+    state.busy = false; render();
+    alert("保存できませんでした: " + e.message);
+  }
+}
+async function clearLogDay() {
+  if (isShacho()) return;
+  const d = state.logDate;
+  if (!d) return;
+  if (!confirm(d + " の日誌を空にします。よろしいですか？")) return;
+  state.busy = true; render();
+  try {
+    await db.collection(LOG_COL).doc(d + "_" + myAuthorId()).set({
+      date: d, ym: d.slice(0, 7), authorId: myAuthorId(), authorName: state.user.name || "",
+      cats: [], text: "",
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: state.user.name || ""
+    }, { merge: true });
+    state.busy = false; state.logLoaded = "";
+    state.logCats = []; state.logText = "";
+    await loadLogs();
+  } catch (e) {
+    state.busy = false; render();
+    alert("できませんでした: " + e.message);
+  }
+}
+/* 区分のリストは本社だけが直せます */
+async function saveLogCats() {
+  if (isShacho()) return;
+  const box = document.getElementById("logCatBox");
+  if (!box) return;
+  const cats = box.value.split("\n").map(s => s.trim()).filter(Boolean);
+  if (!cats.length) return alert("1行に1つ、区分を書いてください");
+  state.busy = true; render();
+  try {
+    await db.collection(LOG_COL).doc(LOG_SETTINGS_DOC).set({ cats }, { merge: true });
+    state.logCatMaster = cats;
+    state.busy = false; state.logCatEdit = false; render();
+    alert("区分を保存しました");
+  } catch (e) {
+    state.busy = false; render();
+    alert("保存できませんでした: " + e.message);
+  }
+}
+
+/* ---- 画面 ---- */
+function renderLogTab() {
+  ensureLogsLoaded();
+  if (state.logLoading) return `<div class="card"><p class="muted" style="margin:0;">業務日誌を読み込んでいます…</p></div>`;
+
+  const me = myAuthorId();
+  const who = shownAuthorId();
+  const mine = (who === me);
+  const ym = state.logYm;
+  const y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  const last = daysInMonth(ym);
+  const today = ymdToday();
+  const cats = state.logCatMaster || DEFAULT_LOG_CATS;
+
+  let rows = "";
+  let filled = 0;
+  const tripDays = [];   // 市内出張の日（○日）をためていきます
+  for (let d = 1; d <= last; d++) {
+    const date = `${ym}-${String(d).padStart(2, "0")}`;
+    const wd = new Date(y, m - 1, d).getDay();
+    const e = logEntry(who, date);
+    const has = e && ((e.text || "").trim() || (e.cats || []).length);
+    if (has) filled++;
+    const hol = holidayName(date);
+    const red = (wd === 0 || !!hol);
+    const eCats = ((e && e.cats) || []);
+    const isTrip = eCats.indexOf(TRIP_CAT) >= 0;
+    if (isTrip) tripDays.push(d);
+    const cls = [has ? "has" : "", isTrip ? "trip" : "", date === today ? "today" : (red ? "sun" : wd === 6 ? "sat" : "")].filter(Boolean).join(" ");
+    const cats = eCats.map(c => c === TRIP_CAT ? `<span class="trip-tag">${esc(c)}</span>` : esc(c)).join("・");
+    rows += `<tr class="${cls}" ${mine ? `onclick="pickLogDay('${date}')"` : ""}>
+<td class="d">${d}日<span class="wd">（${WD[wd]}）</span>${hol ? `<span class="hol">${esc(hol)}</span>` : ""}</td>
+<td class="c">${cats}</td>
+<td class="t">${cats ? `<span class="catinline">${cats}</span>` : ""}${has ? esc(e.text || "") : `<span class="muted">${mine ? "ここを押して書く" : "—"}</span>`}</td>
+</tr>`;
+  }
+
+  const seeAll = state.user.isAdmin || isShacho();
+  const writers = seeAll ? logWriterOptions() : [];
+
+  return `
+<div class="card">
+  <div class="row-between" style="margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+    <p class="title" style="margin:0;">業務日誌　${y}年${m}月</p>
+    <span class="muted" style="font-size:13px;">${filled}日ぶん</span>
+  </div>
+  ${tripDays.length ? `<div class="tripsum">🚗 ${TRIP_CAT}　<b>${tripDays.length}日</b><br><span class="muted">${tripDays.map(d => d + "日").join("・")}</span></div>` : ""}
+  <div class="filters" style="grid-template-columns:${seeAll ? "1fr 1fr" : "1fr"};">
+    <div>
+      <label style="margin-top:0;">月</label>
+      <input type="month" value="${ym}" onchange="changeLogYm(this.value)" />
+    </div>
+    ${seeAll ? `
+    <div>
+      <label style="margin-top:0;">${isShacho() ? "書いた人" : "書いた人（本社だけ選べます）"}</label>
+      <select onchange="state.logWho=this.value; render();">
+        ${writers.map(w => `<option value="${esc(w.id)}" ${w.id === who ? "selected" : ""}>${esc(w.name)}</option>`).join("")}
+      </select>
+    </div>` : ""}
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;">
+    <button class="small" onclick="printLogSheet('${esc(who)}')">🖨 ${mine ? "1か月を印刷" : "この人の1か月を印刷"}</button>
+    ${seeAll ? `<button class="small" style="background:var(--blue-dark);" onclick="printAllLogSheets()">🖨 全員分をまとめて印刷</button>` : ""}
+    <button class="ghost" onclick="state.logLoaded=''; render();">最新に読み直す</button>
+  </div>
+  <p class="muted" style="font-size:11.5px; margin:10px 0 0;">
+    ${mine ? "表の行を押すと、その日の入力になります。" : esc(authorNameOf(who) || "この方") + " の日誌を見ています（書きかえはできません）。"}
+  </p>
+</div>
+
+${mine ? `
+<div class="card">
+  <p class="title">その日のぶんを書く</p>
+  <label>日付</label>
+  <input type="date" value="${state.logDate}" onchange="pickLogDay(this.value)" />
+  <label>区分（いくつでも選べます）</label>
+  <div class="catbox">
+    ${cats.map(c => `<button type="button" class="chip ${c === TRIP_CAT ? "trip" : ""} ${state.logCats.indexOf(c) >= 0 ? "on" : ""}" onclick="toggleLogCat('${esc(c).replace(/'/g, "&#39;")}')">${esc(c)}</button>`).join("")}
+  </div>
+  <label style="margin-top:14px;">内容（その日やったこと）</label>
+  <textarea id="logText" placeholder="例）さわ病院 巡回・床の仕上がり確認／〇〇マンション 見積り／新人1名 同行指導" oninput="state.logText=this.value;">${esc(state.logText)}</textarea>
+  <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+    <button class="small" ${state.busy ? "disabled" : ""} onclick="saveLog()">${state.busy ? "保存中…" : "この日の日誌を保存する"}</button>
+    <button class="ghost" ${state.busy ? "disabled" : ""} onclick="clearLogDay()">この日を空にする</button>
+  </div>
+  <p class="note" style="margin-top:14px;">1日に1行です。写真はありません。月がかわると、また1日から書きはじめます。書いたものは本社も見られます。</p>
+</div>` : ""}
+
+<div class="card">
+  <p class="title" style="margin-bottom:8px;">${esc(authorNameOf(who) || "")}　${y}年${m}月</p>
+  <div class="logwrap">
+    <table class="logtable">
+      <thead><tr><th class="d">日</th><th class="c">区分</th><th>業務の内容</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>
+</div>
+
+${state.user.isAdmin ? `
+<div class="card">
+  <div class="row-between" style="margin:0;">
+    <p class="title" style="margin:0;">区分のリストを直す（本社のみ）</p>
+    <button class="small" style="font-size:13px; padding:8px 14px;" onclick="state.logCatEdit=!state.logCatEdit; render();">${state.logCatEdit ? "とじる" : "ひらく"}</button>
+  </div>
+  ${state.logCatEdit ? `
+  <label>1行に1つ書いてください</label>
+  <textarea id="logCatBox" style="min-height:170px;">${esc((state.logCatMaster || DEFAULT_LOG_CATS).join("\n"))}</textarea>
+  <button class="small" style="margin-top:10px;" ${state.busy ? "disabled" : ""} onclick="saveLogCats()">${state.busy ? "保存中…" : "区分を保存する"}</button>
+  <p class="muted" style="font-size:11.5px; margin-top:8px;">ここを直すと、リーダーさんの画面のボタンも入れかわります。もう書いてある日誌の区分は、そのまま残ります。</p>
+  ` : `<p class="muted" style="font-size:12px; margin:8px 0 0;">リーダーさんが選ぶ「区分」のボタンを、あとから増やしたり減らしたりできます。</p>`}
+</div>` : ""}
+`;
+}
+
+/* ---- 1か月で1枚の報告書 ---- */
+function buildLogSheet(authorId, ym) {
+  const y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  const last = daysInMonth(ym);
+  let rows = "";
+  let tripCount = 0;
+  for (let d = 1; d <= last; d++) {
+    const date = `${ym}-${String(d).padStart(2, "0")}`;
+    const wd = new Date(y, m - 1, d).getDay();
+    const e = logEntry(authorId, date);
+    const hol = holidayName(date);
+    const red = (wd === 0 || !!hol);
+    const eCats = ((e && e.cats) || []);
+    const isTrip = eCats.indexOf(TRIP_CAT) >= 0;
+    if (isTrip) tripCount++;
+    rows += `<tr class="${[red ? "psun" : "", isTrip ? "ptrip" : ""].filter(Boolean).join(" ")}">
+<td class="pd">${d}</td><td class="pw">${WD[wd]}${hol ? `<span class="phol">${esc(hol)}</span>` : ""}</td>
+<td class="pc">${esc(eCats.join("・"))}</td>
+<td class="pt">${esc((e && e.text) || "")}</td>
+</tr>`;
+  }
+  return `
+<div class="sheet">
+  <div class="shead">
+    <div class="stitle">業務日誌</div>
+    <div class="sright"><img src="${HPM_LOGO}" alt="" />株式会社ホームメンテナンス</div>
+  </div>
+  <div class="sinfo">
+    <div>令和${reiwa(y)}年${m}月分　　氏名：<b style="font-size:12pt;">${esc(authorNameOf(authorId) || "")}</b>　　${TRIP_CAT}：<b>${tripCount}</b>日</div>
+    <div class="stamps"><div>取締役</div><div>確認</div></div>
+  </div>
+  <table>
+    <thead><tr><th class="pd">日</th><th class="pw">曜</th><th class="pc">区分</th><th>業務の内容</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="sfoot"><b>今月の特記事項・所感</b></div>
+</div>`;
+}
+function doPrint(html) {
+  printEl.innerHTML = html;
+  const done = () => { printEl.innerHTML = ""; window.removeEventListener("afterprint", done); };
+  window.addEventListener("afterprint", done);
+  setTimeout(() => { if (printEl.innerHTML) printEl.innerHTML = ""; }, 60000);
+  window.print();
+}
+function printLogSheet(authorId) {
+  doPrint(buildLogSheet(authorId || shownAuthorId(), state.logYm));
+}
+function printAllLogSheets() {
+  const ids = [];
+  (state.logs || []).forEach(l => {
+    const has = (l.text || "").trim() || (l.cats || []).length;
+    if (has && l.authorId && ids.indexOf(l.authorId) < 0) ids.push(l.authorId);
+  });
+  if (!ids.length) return alert("この月に書かれた日誌がまだありません");
+  ids.sort((a, b) => (authorNameOf(a) || "").localeCompare(authorNameOf(b) || "", "ja"));
+  doPrint(ids.map(id => buildLogSheet(id, state.logYm)).join(""));
+}
+
+/* ---------- 画面の土台 ---------- */
+/* 他の人の書き込みが届いたときも、入力中の文字とカーソル位置が消えないようにする */
+function render() {
+  const active = document.activeElement;
+  const focusId = active && active.id ? active.id : null;
+  const canSelect = active && typeof active.selectionStart === "number";
+  const selStart = canSelect ? active.selectionStart : null;
+  const selEnd = canSelect ? active.selectionEnd : null;
+
+  renderScreen();
+
+  if (focusId) {
+    const el = document.getElementById(focusId);
+    if (el && el !== document.activeElement && typeof el.focus === "function") {
+      try {
+        el.focus({ preventScroll: true });
+        if (selStart !== null && typeof el.setSelectionRange === "function") el.setSelectionRange(selStart, selEnd);
+      } catch (err) { /* 何もしない */ }
+    }
+  }
+}
+
+function renderScreen() {
+  if (!state.user) return renderLogin();
+  const unread = totalUnread();
+  const tab = (name, label) => `<button class="${state.tab === name ? "active" : ""}" onclick="state.tab='${name}'; render();">${label}</button>`;
+  appEl.innerHTML = `
+<header class="topbar">
+  <h1>${isShacho() ? (SHACHO_LOG_ONLY ? "業務日誌（社長用・見るだけ）" : "アシスト労務（社長用・見るだけ）") : "アシスト（リーダー用）"}</h1>
+  ${isShacho() ? `<button onclick="location.href=SHACHO_HOME">入口へ</button>` : `<button onclick="logout()">ログアウト</button>`}
+</header>
+<main>
+  <p class="muted" style="font-size:13px; margin:0 0 12px; display:flex; justify-content:space-between; gap:10px; align-items:baseline;">
+    <span>${esc(state.user.name)} さん${state.user.isAdmin ? "（本社）" : isShacho() ? "（見るだけ）" : "（リーダー）"}</span>
+    <span style="font-size:10.5px; opacity:.75; white-space:nowrap;">${APP_VERSION}</span>
+  </p>
+  <div class="tabbar" style="${SHACHO_LOG_ONLY ? "display:none;" : ""}">
+    ${isShacho() ? "" : tab("home", "🏠 ホーム")}
+    ${tab("emp", "従業員")}
+    ${tab("leave", `お休み${pendingLeaveCount() ? `<span class="badge">${pendingLeaveCount()}</span>` : ""}`)}
+    ${tab("chat", `チャット${unread ? `<span class="badge">${unread}</span>` : ""}`)}
+    ${isShacho() ? "" : tab("log", "📝 業務日誌")}
+    ${tab("interview", `面接${upcomingInterviewCount() ? `<span class="badge">${upcomingInterviewCount()}</span>` : ""}`)}
+    ${state.user.isAdmin ? tab("setup", "⚙ リーダー設定") : ""}
+  </div>
+  ${state.loading ? `<div class="card"><p class="muted" style="margin:0;">読み込み中です…</p></div>` : renderTab()}
+</main>
+`;
+  if (state.tab === "chat" && state.chatEmpId) {
+    const box = document.getElementById("chatScroll");
+    if (box) box.scrollTop = box.scrollHeight;
+  }
+}
+
+function renderTab() {
+  if (isShacho()) {
+    if (SHACHO_LOG_ONLY) state.tab = "log";
+    else if (["home", "setup", "log"].indexOf(state.tab) >= 0) state.tab = "emp";
+  }
+  if (state.tab === "home") return renderHomeTab();
+  if (state.tab === "log") return renderLogTab();
+  if (state.tab === "setup" && !isShacho()) return renderSetupTab();
+  if (state.tab === "leave") return renderLeaveTab();
+  if (state.tab === "chat") return renderChatTab();
+  if (state.tab === "interview") return renderInterviewTab();
+  const emp = state.employees.find(e => e.id === state.empId);
+  return emp ? renderDetail(emp) : renderList();
+}
+
+/* ---------- ホーム（3つの入り口） ---------- */
+function renderHomeTab() {
+  const unread = totalUnread();
+  const pend = pendingLeaveCount();
+  const today = ymdToday();
+  const mineToday = logEntry(myAuthorId(), today);
+  const wrote = mineToday && ((mineToday.text || "").trim() || (mineToday.cats || []).length);
+  return `
+<div class="card">
+  <p class="title" style="margin-bottom:4px;">きょうは何をしますか</p>
+  <p class="muted" style="font-size:12.5px; margin:0 0 14px;">ここを1つブックマークしておけば、3つとも開けます。</p>
+  <div class="homegrid">
+    <button class="homecard" onclick="state.tab='emp'; state.empId=null; render(); window.scrollTo(0,0);">
+      <div class="ico">👥</div>
+      <div class="nm">アシスト労務（閲覧用）</div>
+      <div class="ds">従業員データ・お休み・チャット${pend ? `<br><b style="color:var(--danger);">お休みの申請 ${pend}件</b>` : ""}${unread ? `<br><b style="color:var(--danger);">未読のチャット ${unread}件</b>` : ""}</div>
+    </button>
+    <a class="homecard" href="${CALENDAR_URL}" target="_blank" rel="noopener">
+      <div class="ico">📅</div>
+      <div class="nm">アシストカレンダー ↗</div>
+      <div class="ds">定期清掃の予定・人員配置<br>（別のタブで開きます）</div>
+    </a>
+    <button class="homecard" onclick="state.tab='log'; render(); window.scrollTo(0,0);">
+      <div class="ico">📝</div>
+      <div class="nm">業務日誌</div>
+      <div class="ds">1か月で1枚の報告書になります<br>${wrote ? `<b style="color:var(--success);">きょうのぶんは書けています</b>` : `<b style="color:var(--danger);">きょうのぶんは、まだです</b>`}</div>
+    </button>
+    ${state.user.isAdmin ? `
+    <button class="homecard" onclick="state.tab='setup'; render(); window.scrollTo(0,0);">
+      <div class="ico">⚙</div>
+      <div class="nm">リーダー設定（本社のみ）</div>
+      <div class="ds">このページに入れる人を決める<br>ログインIDとパスワードを出す・変える</div>
+    </button>` : ""}
+  </div>
+</div>
+<p class="note">スマホのホーム画面にこのページを追加しておくと、アプリのように開けます（Safariは「共有」→「ホーム画面に追加」、Edge・Chromeは「…」→「ホーム画面に追加」）。</p>
+`;
+}
+
+/* ---------- 面接リスト（見るだけ。登録・修正は本社のみ） ---------- */
+const INTERVIEW_LABEL = {
+  scheduled: "面接予定", done: "面接ずみ", hold: "保留", hired: "採用", rejected: "不採用"
+};
+
+function upcomingInterviewCount() {
+  return (state.interviews || []).filter(v => v.status === "scheduled").length;
+}
+
+function fmtInterviewAt(v) {
+  if (!v) return "日時 未定";
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return v;
+  const w = ["日", "月", "火", "水", "木", "金", "土"];
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${w[d.getDay()]}） ${hh}:${mm}`;
+}
+
+function interviewPillClass(st) {
+  if (st === "hired") return "pill on";
+  if (st === "rejected") return "pill no";
+  if (st === "scheduled") return "pill wait";
+  return "pill";
+}
+
+function interviewRow(v) {
+  const tel = (v.phone || "").replace(/[^0-9+]/g, "");
+  return `
+<div style="border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom:10px; background:#fff;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+    <div>
+      <span style="font-size:16px; font-weight:700;">${esc(v.name || "（名前なし）")}</span>
+      ${v.age ? `<span class="muted" style="font-size:13px;">　${esc(String(v.age))}歳</span>` : ""}<br>
+      ${v.phone ? `<a href="tel:${tel}" style="font-size:14px; color:var(--blue); text-decoration:none;">📞 ${esc(v.phone)}</a><br>` : ""}
+      <span class="muted" style="font-size:13px;">応募の現場：${esc(v.appliedSite || "（未記入）")}</span><br>
+      <span class="muted" style="font-size:13px;">面接：${fmtInterviewAt(v.interviewAt)}${v.interviewPlace ? "　" + esc(v.interviewPlace) : ""}</span>
+    </div>
+    <span class="${interviewPillClass(v.status)}" style="white-space:nowrap;">${INTERVIEW_LABEL[v.status] || v.status || ""}</span>
+  </div>
+  ${(!isShacho() && (v.memo || "").trim()) ? `
+    <div style="margin-top:10px; padding:10px 12px; background:#FCFAF6; border:1px solid var(--border); border-radius:10px;">
+      <div class="muted" style="font-size:11.5px; margin-bottom:3px;">面接メモ（社内用）</div>
+      <div style="font-size:14px; line-height:1.6; white-space:pre-wrap;">${esc(v.memo)}</div>
+    </div>` : ""}
+</div>`;
+}
+
+function renderInterviewTab() {
+  const all = state.interviews || [];
+  const byTime = (a, b) => (a.interviewAt || "9999").localeCompare(b.interviewAt || "9999");
+  const upcoming = all.filter(v => v.status === "scheduled").sort(byTime);
+  const waiting = all.filter(v => v.status === "done" || v.status === "hold").sort(byTime);
+  const finished = all.filter(v => v.status === "hired" || v.status === "rejected").sort((a, b) => byTime(b, a));
+
+  return `
+<p class="note" style="margin-bottom:14px;">応募者の登録・修正は本社で行います。この画面では内容を見るだけです。${isShacho() ? "面接のメモ（社内用）は出ません。" : "面接メモ（社内用）は社外の方には見せないでください。"}</p>
+<div class="card">
+  <p class="title" style="margin-bottom:10px;">これからの面接（${upcoming.length}件）</p>
+  ${upcoming.length ? upcoming.map(interviewRow).join("") : `<p class="muted" style="font-size:13px; margin:0;">予定はありません</p>`}
+
+  <div style="margin-top:18px; border-top:1px solid var(--border); padding-top:12px;">
+    <p class="title" style="margin-bottom:10px;">面接ずみ・保留（${waiting.length}件）</p>
+    ${waiting.length ? waiting.map(interviewRow).join("") : `<p class="muted" style="font-size:13px; margin:0;">ありません</p>`}
+  </div>
+
+  <div style="margin-top:18px; border-top:1px solid var(--border); padding-top:12px;">
+    <p class="title" style="margin-bottom:10px;">結果が出たもの（${finished.length}件）</p>
+    ${finished.length ? finished.map(interviewRow).join("") : `<p class="muted" style="font-size:13px; margin:0;">ありません</p>`}
+  </div>
+</div>`;
+}
+
+function renderLogin() {
+  if (SHACHO) {
+    appEl.innerHTML = `<div class="center-screen"><div class="card login-card">
+      <h1>アシスト（社長用）</h1>
+      <p class="sub">${esc(state.shachoErr || "読み込み中です…")}</p>
+      <a class="small" style="display:inline-block;text-decoration:none;" href="${SHACHO_HOME}">入口にもどる</a>
+    </div></div>`;
+    return;
+  }
+  const saved = localStorage.getItem("assistViewerId") || "";
+  const savedPass = localStorage.getItem("assistViewerPass") || "";
+  appEl.innerHTML = `
+<div class="center-screen">
+  <div class="card login-card">
+    <div style="width:52px;height:52px;border-radius:50%;background:var(--blue);box-shadow:0 0 0 8px var(--sun-soft);margin:4px auto 16px;"></div>
+    <h1>アシスト（リーダー用）</h1>
+    <p class="sub">株式会社ホームメンテナンス<br><span style="font-size:11.5px;">アシスト労務（閲覧用）・カレンダー・業務日誌</span></p>
+    <label>ログインID（8桁の数字）</label>
+    <input id="loginId" type="text" inputmode="numeric" placeholder="12345678" value="${esc(saved)}" />
+    <label>パスワード</label>
+    <input id="pass" type="password" autocomplete="current-password" value="${esc(savedPass)}" onkeydown="if(event.key==='Enter')handleLogin()" />
+    <label style="display:flex; align-items:center; gap:6px; font-weight:400; font-size:12px;">
+      <input id="remember" type="checkbox" style="width:auto;" ${saved ? "checked" : ""} />
+      このスマホにログインIDを保存する
+    </label>
+    <label style="display:flex; align-items:center; gap:6px; font-weight:400; font-size:12px; margin-top:4px;">
+      <input id="rememberPass" type="checkbox" style="width:auto;" ${savedPass ? "checked" : ""} />
+      パスワードも保存する（人と共有しているスマホでは入れないでください）
+    </label>
+    <button class="primary" onclick="handleLogin()">ログイン</button>
+    ${savedPass ? `<button class="link" style="font-size:12px; margin-top:8px;" onclick="forgetSavedPass()">保存したパスワードを消す</button>` : ""}
+    <p class="muted" style="font-size:11.5px; margin:14px 0 0;">
+      パスワードがわからないときは本社（06-6654-7812）へご連絡ください。
+    </p>
+  </div>
+</div>
+`;
+}
+
+/* ---------- 従業員タブ ---------- */
+function computeList() {
+  const v = (state.search || "").toLowerCase();
+  const vDigits = (state.search || "").replace(/[^\d]/g, "");
+  const list = state.employees.filter(e => {
+    if (state.area && e.area !== state.area) return false;
+    if (!v) return true;
+    const phoneDigits = (e.phone || "").replace(/[^\d]/g, "");
+    if (vDigits && phoneDigits.includes(vDigits)) return true;
+    return [e.name, e.furigana, e.employeeCode, e.workplace, e.area].some(f => (f || "").toLowerCase().includes(v));
+  });
+  return list.sort((a, b) => {
+    if (state.sort === "name") return (a.name || "").localeCompare(b.name || "", "ja");
+    if (state.sort === "age") {
+      const A = calcAge(a.birthDate), B = calcAge(b.birthDate);
+      if (A === null && B === null) return 0;
+      if (A === null) return 1;
+      if (B === null) return -1;
+      return B - A;
+    }
+    if (state.sort === "hire") {
+      const A = parseDate(a.hireDate), B = parseDate(b.hireDate);
+      if (!A && !B) return 0;
+      if (!A) return 1;
+      if (!B) return -1;
+      return B - A;
+    }
+    return (a.employeeCode || "").localeCompare(b.employeeCode || "", "ja", { numeric: true });
+  });
+}
+
+function renderList() {
+  const areas = [...new Set(state.employees.map(e => e.area).filter(Boolean))];
+  const chip = (k, l) => `<button class="chip ${state.sort === k ? "on" : ""}" onclick="state.sort='${k}'; render();">${l}</button>`;
+  return `
+<div class="card">
+  <p class="title">従業員一覧</p>
+  <div class="filters">
+    <input id="search" type="text" placeholder="氏名・フリガナ・管理番号・電話・現場で検索" value="${esc(state.search)}"
+      oninput="state.search=this.value; document.getElementById('rows').innerHTML=renderRows();" />
+    <select onchange="state.area=this.value; render();">
+      <option value="">エリア：すべて</option>
+      ${areas.map(a => `<option value="${esc(a)}" ${a === state.area ? "selected" : ""}>${esc(a)}</option>`).join("")}
+    </select>
+  </div>
+  <div class="chips">${chip("code","管理番号順")}${chip("name","氏名順")}${chip("age","年齢順")}${chip("hire","入社日順")}</div>
+  <div id="rows">${renderRows()}</div>
+</div>
+`;
+}
+
+function renderRows() {
+  const list = computeList();
+  if (!list.length) return `<p class="muted" style="padding:16px 4px;">該当する人がいません</p>`;
+  return list.map(e => {
+    const age = calcAge(e.birthDate);
+    const meta = [e.employeeCode || "", e.area || "", e.workplace || "", shiftSummary(e)].filter(Boolean).join(" ・ ");
+    return `
+<div class="row" onclick="state.empId='${e.id}'; state.notesDraft=null; render(); window.scrollTo(0,0);">
+  <div style="min-width:0; flex:1;">
+    <div style="display:flex; align-items:baseline; gap:7px; flex-wrap:wrap;">
+      <span style="font-weight:700; font-size:16px;">${esc(e.name || "(名前未登録)")}</span>
+      ${age !== null ? `<span class="pill">満${age}歳</span>` : ""}
+      ${(e.companyMemo || "").trim() ? `<span class="muted" style="font-size:11px;">📝メモあり</span>` : ""}
+    </div>
+    <div class="muted" style="font-size:12px; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(meta)}</div>
+  </div>
+  ${e.phone ? `<a class="tel" href="tel:${esc(e.phone)}" onclick="event.stopPropagation()">📞 ${esc(e.phone)}</a>` : ""}
+</div>`;
+  }).join("");
+}
+
+function renderDetail(e) {
+  const age = calcAge(e.birthDate);
+  const addr = viewerAddress(e);
+  const cell = (label, value) => `
+<div style="padding:9px 4px; border-bottom:1px solid var(--border);">
+  <div class="muted" style="font-size:11.5px;">${label}</div>
+  <div style="font-size:15px; font-weight:600; margin-top:2px;">${value}</div>
+</div>`;
+  const rows = VIEWER_FIELDS
+    .map(([k, l]) => [l, (e[k] ?? "").toString().trim()])
+    .filter(([, v]) => v);
+  const shift = shiftSummary(e);
+  const stamp = fmtStamp(e.companyMemoUpdatedAt);
+
+  return `
+<div class="card">
+  <button class="link" style="margin-bottom:10px;" onclick="state.empId=null; state.notesDraft=null; render();">← 一覧にもどる</button>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+    <p class="title" style="margin:0;">${esc(e.name || "")} さん</p>
+    ${age !== null ? `<span class="pill">満${age}歳</span>` : ""}
+  </div>
+  <div class="grid2">
+    ${cell("管理番号", esc(e.employeeCode || "—"))}
+    ${rows.map(([l, v]) => cell(l, esc(v))).join("")}
+    ${shift ? cell("勤務する曜日", esc(shift)) : ""}
+    ${WEEKDAY_FIELDS.filter(([k]) => (e[k] || "").trim()).map(([k, l]) => cell(l + "曜日の時間", esc(e[k]))).join("")}
+    ${cell("住所（町名まで）", addr ? esc(addr) + `<span class="muted" style="font-size:11px; font-weight:400;"> ※以降は非表示</span>` : "—")}
+  </div>
+
+  ${renderEmpAttendanceHistory(e)}
+
+  <div style="margin-top:18px;">
+    <label style="margin-bottom:6px;">${isShacho() ? "会社用メモ（社内用）" : "会社用メモ（社内用・ここだけ書き込めます）"}</label>
+    ${isShacho()
+      ? `<div class="note" style="white-space:pre-wrap; font-size:14px; color:var(--text);">${esc(e.companyMemo || "（書き込みはありません）")}</div>`
+      : `<textarea id="notesBox" placeholder="申し送りや気づいたことを書いてください"
+      oninput="state.notesDraft=this.value;">${esc(state.notesDraft !== null ? state.notesDraft : (e.companyMemo || ""))}</textarea>`}
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+      <span class="muted" style="font-size:11.5px;">
+        ${stamp ? `最終更新：${stamp} ${esc(e.companyMemoUpdatedBy || "")}` : "まだ書き込みはありません"}
+      </span>
+      ${isShacho() ? "" : `<button class="small" ${state.busy ? "disabled" : ""} onclick="saveNotes('${e.id}')">${state.busy ? "保存中…" : "メモを保存する"}</button>`}
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:16px;${isShacho() ? " display:none;" : ""}">この画面で書き込めるのは会社用メモだけです。ほかの内容の修正が必要なときは本社（06-6654-7812）までご連絡ください。</p>
+</div>
+`;
+}
+
+/* 本体アプリの「過去の勤怠」と同じ表示（見るだけ・記録や削除はできません） */
+function renderEmpAttendanceHistory(emp) {
+  const records = (state.leaves || [])
+    .filter(r => r.employeeId === emp.id)
+    .slice()
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+  const granted = calcAnnualGrant(emp.hireDate, emp.weeklyDays);
+  const used = usedPaidLeaveFor(emp.id);
+  return `
+<div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+  <p class="title" style="font-size:15px; margin:0 0 10px;">過去の勤怠（休み・有給・忌引き・早退）</p>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+    <span class="status-pill status-approved">付与 ${granted}日</span>
+    <span class="status-pill status-pending">有給の消化 ${Math.round(used * 10) / 10}日</span>
+    <span class="status-pill status-approved">残り ${remainingLeaveFor(emp)}日</span>
+  </div>
+  <table>
+    <thead><tr><th>日付</th><th>区分</th><th>日数</th><th class="hide-narrow">理由</th><th>状態</th></tr></thead>
+    <tbody>
+      ${records.map(r => {
+        const isPaid = r.type === "有給休暇";
+        const days = typeof r.days === "number" ? r.days : 1;
+        return `
+      <tr>
+        <td style="white-space:nowrap;">${esc(r.date || "")}</td>
+        <td>${esc(r.type || "")}${r.enteredBy === "admin" ? ` <span class="muted" style="font-size:10px;">(会社入力)</span>` : ""}</td>
+        <td>${isPaid ? days + "日" : "—"}</td>
+        <td class="hide-narrow">${esc(r.reason || "")}</td>
+        <td>${leaveStatusPill(r.status)}</td>
+      </tr>`;
+      }).join("") || `<tr><td colspan="5" class="muted">記録はまだありません</td></tr>`}
+    </tbody>
+  </table>
+</div>
+`;
+}
+
+/* ---------- お休みタブ（見るだけ・本体アプリと同じ表示） ---------- */
+const LEAVE_STATUS_LABEL = { pending: "確認中", approved: "決裁済み", rejected: "否決", cancelRequested: "取り消し依頼あり", cancelled: "取り消し済み" };
+const LEAVE_TYPE_COLOR = { "有給休暇": "#2f855a", "欠勤（無給）": "#b7791f", "遅刻・早退": "#b7791f", "忌引き": "#4a5568" };
+
+function leaveStatusPill(status) {
+  const key = LEAVE_STATUS_LABEL[status] ? status : "pending";
+  const cls = key === "approved" ? "status-approved"
+    : (key === "rejected" || key === "cancelRequested" || key === "cancelled") ? "status-rejected"
+    : "status-pending";
+  return `<span class="status-pill ${cls}">${LEAVE_STATUS_LABEL[key]}</span>`;
+}
+function pendingLeaveCount() {
+  return (state.leaves || []).filter(r => r.status === "pending").length;
+}
+function leaveYmd(d) {
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+// 「9月28日（月）」の形にして、近い日は「今日」「明日」「あと○日」を添える
+function leaveDateLabel(dateStr) {
+  const d = new Date(String(dateStr || "").replace(/-/g, "/"));
+  if (!dateStr || isNaN(d)) return { label: dateStr || "", urgency: "", soon: false };
+  const wd = WD[d.getDay()];
+  const label = `${d.getMonth() + 1}月${d.getDate()}日（${wd}）`;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  const days = Math.round((d - today) / 86400000);
+  let urgency = "";
+  if (days === 0) urgency = "今日";
+  else if (days === 1) urgency = "明日";
+  else if (days <= 7) urgency = `あと${days}日`;
+  return { label, urgency, soon: days <= 1 };
+}
+
+// これから先（今日以降）の休み・有給の予定を、日付順でまとめて表示する
+function renderUpcomingLeaveCard() {
+  const todayStr = leaveYmd(new Date());
+  const list = (state.leaves || [])
+    .filter(r => r.status !== "rejected" && r.status !== "cancelled" && r.date && r.date >= todayStr)
+    .slice()
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  return `
+<div class="card">
+  <div class="row-between" style="margin-bottom:12px;">
+    <p class="title" style="margin:0;">これからのお休み予定（日付順）</p>
+    <span class="muted" style="font-size:13px;">${list.length}件</span>
+  </div>
+  ${list.length ? list.map(r => {
+    const { label, urgency, soon } = leaveDateLabel(r.date);
+    return `
+  <div class="req-item" style="${soon ? "background:#FCF1E2; border-radius:8px; padding:12px;" : ""}">
+    <div class="row-between" style="margin:0; align-items:flex-start; gap:10px;">
+      <div style="min-width:0;">
+        <div style="font-weight:700;">${esc(label)}${urgency ? `<span style="color:var(--danger); font-size:12px; margin-left:8px;">${urgency}</span>` : ""}</div>
+        <div style="margin-top:3px;">${esc(r.employeeName || "")}<span class="muted" style="margin-left:8px; font-size:13px;">${esc(r.area || "")}</span></div>
+        <div class="muted" style="font-size:13px; margin-top:2px;"><span style="color:${LEAVE_TYPE_COLOR[r.type] || "var(--text)"}; font-weight:600;">${esc(r.type || "")}</span>${r.reason ? "・" + esc(r.reason) : ""}</div>
+      </div>
+      <div style="flex-shrink:0; text-align:right;">${leaveStatusPill(r.status)}</div>
+    </div>
+  </div>
+`;
+  }).join("") : `<p class="muted" style="margin:0;">これから先の休み・有給の予定はありません</p>`}
+  <p class="muted" style="font-size:11px; margin-top:10px;">否決したものと、日付が過ぎたものは出しません。「確認中」はまだ決裁待ちです（決裁・否決は本社で行います）。</p>
+</div>
+`;
+}
+
+// これまで（今日より前）の休み・有給の記録。否決・取り消しのものは出さない。
+function filterPastLeave() {
+  const todayStr = leaveYmd(new Date());
+  const list = (state.leaves || [])
+    .filter(r => r.status !== "rejected" && r.status !== "cancelled" && r.date && r.date < todayStr)
+    .slice()
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)); // 日付の新しい順（降順）
+  const q = (state.pastLeaveSearch || "").trim().toLowerCase();
+  if (!q) return list;
+  return list.filter(r =>
+    [r.employeeName, r.area, r.type, r.reason, r.date].some(f => (f || "").toString().toLowerCase().includes(q))
+  );
+}
+
+function renderPastLeaveList() {
+  const list = filterPastLeave();
+  if (!list.length) {
+    return `<p class="muted" style="font-size:12px; margin:12px 0 0;">${(state.pastLeaveSearch || "").trim() ? "見つかりませんでした" : "過去のお休みの記録はありません"}</p>`;
+  }
+  return `<p class="muted" style="font-size:12px; margin:12px 0 4px;">${list.length}件</p>
+<table>
+  <thead><tr><th>日付</th><th>氏名</th><th class="hide-narrow">エリア</th><th>区分</th><th>消化日数</th><th>理由</th><th>状態</th></tr></thead>
+  <tbody>
+    ${list.map(r => `
+    <tr>
+      <td style="white-space:nowrap;">${esc(r.date || "")}</td>
+      <td>${esc(r.employeeName || "")}</td>
+      <td class="hide-narrow">${esc(r.area || "")}</td>
+      <td style="color:${LEAVE_TYPE_COLOR[r.type] || "var(--text)"}; font-weight:600;">${esc(r.type || "")}</td>
+      <td>${r.type === "有給休暇" && r.days ? esc(String(r.days)) + "日" : ""}</td>
+      <td>${esc(r.reason || "")}</td>
+      <td>${esc(LEAVE_STATUS_LABEL[r.status] || r.status || "")}</td>
+    </tr>
+    `).join("")}
+  </tbody>
+</table>`;
+}
+
+function renderPastLeaveCard() {
+  const open = !!state.showPastLeave;
+  return `
+<div class="card">
+  <div class="row-between" style="margin:0;">
+    <p class="title" style="margin:0;">過去のお休み（これまでの記録）</p>
+    <button class="small" style="font-size:13px; padding:8px 14px;" onclick="state.showPastLeave = !state.showPastLeave; render();">${open ? "とじる" : "ひらく"}</button>
+  </div>
+  ${open ? `
+  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:12px;">
+    <input id="pastLeaveSearch" type="text" placeholder="氏名・エリア・区分・理由・日付で検索" value="${esc(state.pastLeaveSearch || "")}" oninput="handlePastLeaveSearch(this)" oncompositionstart="this.dataset.composing='1'" oncompositionend="this.dataset.composing=''; handlePastLeaveSearch(this)" style="flex:1; min-width:220px; margin:0;" />
+  </div>
+  <div id="pastLeaveListBody">${renderPastLeaveList()}</div>
+  <p class="muted" style="font-size:11px; margin-top:10px;">今日より前の記録を、新しい順（降順）で表示しています。否決・取り消しのものは出していません。</p>
+  ` : `<p class="muted" style="font-size:12px; margin:8px 0 0;">「ひらく」を押すと、これまでのお休みを新しい順で確認できます。検索もできます。</p>`}
+</div>
+`;
+}
+
+// 検索入力：入力欄を作り直さず、一覧部分だけ差し替える（日本語変換中は反応しない）
+function handlePastLeaveSearch(el) {
+  if (el.dataset.composing === "1") return;
+  state.pastLeaveSearch = el.value;
+  const body = document.getElementById("pastLeaveListBody");
+  if (body) body.innerHTML = renderPastLeaveList();
+}
+
+function renderLeaveTab() {
+  const pending = (state.leaves || []).filter(r => r.status === "pending");
+  const cancelReqs = (state.leaves || []).filter(r => r.status === "cancelRequested");
+  return `
+<p class="note" style="margin-bottom:14px;">決裁・否決は本社で行います。この画面では内容を見るだけです。</p>
+${cancelReqs.length ? `
+<div class="card" style="border:2px solid var(--danger);">
+  <p class="title" style="color:var(--danger);">取り消しの依頼（パートさんが日にちのまちがいなどで取り消しを希望しています）</p>
+  <table>
+    <thead><tr><th>氏名</th><th class="hide-narrow">エリア</th><th>日付</th><th>区分</th><th>理由</th></tr></thead>
+    <tbody>
+      ${cancelReqs.map(r => `
+      <tr>
+        <td>${esc(r.employeeName || "")}</td>
+        <td class="hide-narrow">${esc(r.area || "")}</td>
+        <td style="white-space:nowrap;">${esc(r.date || "")}</td>
+        <td>${esc(r.type || "")}</td>
+        <td>${esc(r.reason || "")}</td>
+      </tr>
+      `).join("")}
+    </tbody>
+  </table>
+  <p class="muted" style="font-size:11px; margin-top:10px;">取り消しの承認は本社が行います。</p>
+</div>
+` : ""}
+${renderUpcomingLeaveCard()}
+${renderPastLeaveCard()}
+<div class="card">
+  <p class="title">決裁待ちの休暇申請</p>
+  <table>
+    <thead><tr><th>氏名</th><th class="hide-narrow">エリア</th><th>日付</th><th>区分</th><th>理由</th></tr></thead>
+    <tbody>
+      ${pending.map(r => `
+      <tr>
+        <td>${esc(r.employeeName || "")}</td>
+        <td class="hide-narrow">${esc(r.area || "")}</td>
+        <td style="white-space:nowrap;">${esc(r.date || "")}</td>
+        <td>${esc(r.type || "")}${r.enteredBy === "admin" ? ` <span class="muted" style="font-size:10px;">(会社入力)</span>` : ""}</td>
+        <td>${esc(r.reason || "")}</td>
+      </tr>
+      `).join("") || `<tr><td colspan="5" class="muted">現在、決裁待ちの申請はありません</td></tr>`}
+    </tbody>
+  </table>
+</div>
+`;
+}
+
+/* ---------- チャットタブ（個人のみ・返信できます） ---------- */
+function chatEmployeeList() {
+  const v = (state.chatSearch || "").toLowerCase();
+  const latest = {};
+  (state.messages || []).forEach(m => {
+    if (m.broadcastId) return;
+    const t = tsSeconds(m.createdAt);
+    if (!latest[m.employeeId] || t > latest[m.employeeId]) latest[m.employeeId] = t;
+  });
+  return (state.employees || [])
+    .filter(e => !v || [e.name, e.furigana, e.employeeCode].some(f => (f || "").toLowerCase().includes(v)))
+    .sort((a, b) => (latest[b.id] || 0) - (latest[a.id] || 0) || (a.employeeCode || "").localeCompare(b.employeeCode || "", "ja", { numeric: true }));
+}
+
+function renderChatTab() {
+  const empId = state.chatEmpId;
+  if (empId) {
+    const emp = state.employees.find(e => e.id === empId) || {};
+    const thread = threadOf(empId);
+    return `
+<div class="card">
+  <button class="link" style="margin-bottom:10px;" onclick="state.chatEmpId=null; render();">← 一覧にもどる</button>
+  <p class="title" style="margin-bottom:10px;">${esc(emp.name || "")} さんとのやりとり</p>
+  <div class="chat-scroll" id="chatScroll">
+    ${thread.length ? thread.map(m => renderBubble(m)).join("") : `<p class="muted">まだメッセージはありません</p>`}
+  </div>
+  ${isShacho() ? `<p class="note" style="margin-top:12px;">見るだけの画面です。返信はできません。</p>` : `
+  <div class="preset-row">
+    ${PRESET_PHRASES.map(p => `<button type="button" class="preset-btn" onclick="insertPreset('${p}')">${p}</button>`).join("")}
+  </div>
+  <div class="compose">
+    <textarea id="chatInput" placeholder="メッセージを入力" oninput="state.chatDraft=this.value;">${esc(state.chatDraft || "")}</textarea>
+    <button class="small" ${state.busy ? "disabled" : ""} onclick="sendReply('${empId}')">${state.busy ? "送信中…" : "送信"}</button>
+  </div>
+  <p class="note" style="margin-top:12px;">返信は「${esc(state.user.name)}」の名前で相手に届きます。全員への一斉送信は本社の画面からになります。</p>`}
+</div>
+`;
+  }
+  const list = chatEmployeeList();
+  return `
+<div class="card">
+  <p class="title">チャット（個人のやりとり）</p>
+  <input type="text" placeholder="名前で検索" value="${esc(state.chatSearch)}" style="margin-bottom:12px;"
+    oninput="state.chatSearch=this.value; document.getElementById('chatRows').innerHTML=renderChatRows();" />
+  <div id="chatRows">${renderChatRows()}</div>
+</div>
+`;
+}
+
+function renderChatRows() {
+  const list = chatEmployeeList();
+  if (!list.length) return `<p class="muted" style="padding:16px 4px;">該当する人がいません</p>`;
+  return list.map(e => {
+    const thread = threadOf(e.id);
+    const last = thread[thread.length - 1];
+    const unread = unreadOf(e.id);
+    return `
+<div class="row" onclick="openThread('${e.id}')">
+  <div style="min-width:0; flex:1;">
+    <div style="display:flex; align-items:baseline; gap:7px;">
+      <span style="font-weight:700; font-size:15.5px;">${esc(e.name || "")}</span>
+      ${unread ? `<span class="badge">${unread}</span>` : ""}
+    </div>
+    <div class="muted" style="font-size:12px; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+      ${last ? esc((last.senderRole === "office" ? "自社：" : "") + (last.text || (last.photoURL ? "写真" : ""))) : "まだやりとりはありません"}
+    </div>
+  </div>
+  <span class="muted" style="font-size:11px; white-space:nowrap;">${last ? fmtChatTime(last.createdAt) : ""}</span>
+</div>`;
+  }).join("");
+}
+
+function renderBubble(m) {
+  const mine = m.senderRole === "office";
+  return `
+<div class="bubble-row ${mine ? "mine" : ""}">
+  <div>
+    <div class="bubble">
+      ${m.text ? esc(m.text) : ""}
+      ${m.photoURL ? `<img src="${m.photoURL}" onclick="window.open('${m.photoURL}','_blank')" />` : ""}
+    </div>
+    <div class="meta">${mine ? esc(m.senderName || "本社") + " " : ""}${fmtChatTime(m.createdAt)}</div>
+  </div>
+</div>`;
+}
+
+/* =========================================================
+リーダー設定（本社だけが使えます）
+・このページ（アシスト リーダー用）に入れる人を決めて、
+ログインIDとパスワードを出す／変える画面です。
+・Firebaseのパスワードは、あとから読み出すことができません
+（暗号化されていて、Googleも読めません）。
+そのため、出したパスワードの「ひかえ」を leaderSecrets に残しています。
+これを読めるのは本社の管理者だけです（Firestoreのルールでそうしています）。
+========================================================= */
+const SECRET_COL = "leaderSecrets";
+
+async function loadSecrets(force) {
+  if (!state.user || !state.user.isAdmin) return;
+  if (state.secretsLoading) return;
+  if (state.secretsLoaded && !force) return;
+  state.secretsLoading = true; render();
+  try {
+    const snap = await db.collection(SECRET_COL).get();
+    const m = {};
+    snap.docs.forEach(d => { m[d.id] = d.data(); });
+    state.secrets = m;
+    state.secretsError = "";
+  } catch (e) {
+    state.secretsError = e.message || "読み込めませんでした";
+  }
+  state.secretsLoaded = true;
+  state.secretsLoading = false; render();
+}
+function usedLoginIds(exceptId) {
+  const s = {};
+  (state.employees || []).forEach(e => { if (e.id !== exceptId && e.loginId) s[String(e.loginId)] = 1; });
+  return s;
+}
+function pickSetupEmp(id) {
+  const emp = (state.employees || []).find(e => e.id === id);
+  state.setupEmpId = id;
+  state.setupLoginId = emp ? String(emp.loginId || "") : "";
+  state.setupPw = "";
+  state.showSecretFor = null;
+  render(); window.scrollTo(0, 0);
+}
+
+/* 許可を出す／パスワードを変える */
+async function grantLeader(empId) {
+  if (isShacho()) return;
+  const emp = (state.employees || []).find(e => e.id === empId);
+  if (!emp) return;
+  const loginId = String(state.setupLoginId || "").replace(/[^\d]/g, "");
+  const pw = String(state.setupPw || "");
+  if (loginId.length !== 8) return alert("ログインIDは8桁の数字にしてください");
+  if (usedLoginIds(empId)[loginId]) return alert("そのログインIDは、ほかの方が使っています");
+  if (pw.length < 6) return alert("パスワードは6文字以上にしてください");
+
+  const redo = !!emp.viewerEnabled || (Number(emp.viewerAuthVersion) || 0) >= 1;
+  state.busy = true; render();
+  let v = (Number(emp.viewerAuthVersion) || 0) + 1;
+  try {
+    let cred = null, tries = 0;
+    while (!cred) {
+      try {
+        cred = await subApp.auth().createUserWithEmailAndPassword(leaderEmail(loginId, v), pw);
+      } catch (err) {
+        if (err.code === "auth/email-already-in-use" && tries < 30) { v++; tries++; }
+        else throw err;
+      }
+    }
+    const uid = cred.user.uid;
+    await db.collection("viewers").doc(uid).set({
+      name: emp.name || "",
+      employeeId: emp.id,
+      loginId: loginId,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: state.user.name || ""
+    });
+    await db.collection("employees").doc(emp.id).update({
+      loginId: loginId,
+      viewerEnabled: true,
+      viewerAuthVersion: v
+    });
+    /* パスワードのひかえ（本社だけが読めます） */
+    try {
+      await db.collection(SECRET_COL).doc(emp.id).set({
+        employeeId: emp.id,
+        name: emp.name || "",
+        loginId: loginId,
+        password: pw,
+        authVersion: v,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: state.user.name || ""
+      });
+    } catch (e2) {
+      alert("パスワードは変わりましたが、ひかえを残せませんでした。\nFirestoreのルールに leaderSecrets を足してください。\n（" + e2.message + "）");
+    }
+    try { await subApp.auth().signOut(); } catch (x) { /* 何もしない */ }
+    state.busy = false;
+    state.setupDone = { name: emp.name || "", loginId: loginId, pw: pw, redo: redo };
+    state.setupPw = "";
+    await loadSecrets(true);
+    window.scrollTo(0, 0);
+  } catch (e) {
+    state.busy = false; render();
+    try { await subApp.auth().signOut(); } catch (x) { /* 何もしない */ }
+    alert(authErrorMessage(e));
+  }
+}
+async function revokeLeader(empId) {
+  if (isShacho()) return;
+  const emp = (state.employees || []).find(e => e.id === empId);
+  if (!emp) return;
+  if (!confirm((emp.name || "") + " さんが、このページに入れないようにします。よろしいですか？")) return;
+  state.busy = true; render();
+  try {
+    await db.collection("employees").doc(emp.id).update({ viewerEnabled: false });
+    state.busy = false; render();
+    alert("入れないようにしました");
+  } catch (e) {
+    state.busy = false; render();
+    alert("できませんでした: " + e.message);
+  }
+}
+async function deleteSecret(empId) {
+  if (isShacho()) return;
+  if (!confirm("パスワードのひかえを消します。（パスワードそのものは変わりません）")) return;
+  state.busy = true; render();
+  try {
+    await db.collection(SECRET_COL).doc(empId).delete();
+    state.busy = false;
+    await loadSecrets(true);
+  } catch (e) {
+    state.busy = false; render();
+    alert("できませんでした: " + e.message);
+  }
+}
+
+/* ---- 画面 ---- */
+function renderSetupTab() {
+  if (!state.user.isAdmin) return `<div class="card"><p class="muted" style="margin:0;">この画面は本社だけが使えます。</p></div>`;
+  loadSecrets();
+  if (state.setupDone) return renderSetupDone();
+  const emp = (state.employees || []).find(e => e.id === state.setupEmpId);
+  return emp ? renderSetupOne(emp) : renderSetupList();
+}
+
+function setupRows() {
+  const v = (state.setupSearch || "").toLowerCase();
+  const vd = (state.setupSearch || "").replace(/[^\d]/g, "");
+  const list = (state.employees || []).filter(e => {
+    if (!v) return true;
+    if (vd && String(e.loginId || "").includes(vd)) return true;
+    return [e.name, e.furigana, e.employeeCode, e.area].some(f => String(f || "").toLowerCase().includes(v));
+  }).sort((a, b) => {
+    const A = a.viewerEnabled ? 0 : 1, B = b.viewerEnabled ? 0 : 1;
+    if (A !== B) return A - B;
+    return String(a.employeeCode || "").localeCompare(String(b.employeeCode || ""), "ja", { numeric: true });
+  });
+  if (!list.length) return `<p class="muted" style="padding:16px 4px;">該当する人がいません</p>`;
+  return list.map(e => `
+<div class="row" onclick="pickSetupEmp('${e.id}')">
+  <div style="min-width:0; flex:1;">
+    <div style="font-weight:700; font-size:15.5px;">${esc(e.name || "(名前未登録)")}</div>
+    <div class="muted" style="font-size:12px; margin-top:3px;">${esc([e.employeeCode || "", e.area || "", e.loginId ? ("ID " + e.loginId) : "ログインID未設定"].filter(Boolean).join(" ・ "))}</div>
+  </div>
+  <span class="pill ${e.viewerEnabled ? "on" : ""}">${e.viewerEnabled ? "入れます" : "未設定"}</span>
+</div>`).join("");
+}
+
+function renderSetupList() {
+  const on = (state.employees || []).filter(e => e.viewerEnabled).length;
+  return `
+<div class="card">
+  <p class="title" style="margin-bottom:4px;">だれをこのページに入れますか</p>
+  <p class="muted" style="font-size:12.5px; margin:0 0 12px;">いま入れる人 ${on}名 ／ 在籍 ${state.employees.length}名</p>
+  <input id="setupSearch" type="text" placeholder="氏名・フリガナ・管理番号・ログインIDで検索" value="${esc(state.setupSearch)}"
+    oninput="state.setupSearch=this.value; document.getElementById('setupRows').innerHTML=setupRows();" />
+  <div id="setupRows" style="margin-top:10px;">${setupRows()}</div>
+</div>
+${state.secretsError ? `<p class="note" style="border-color:var(--danger); color:var(--danger);">パスワードのひかえが読めませんでした。Firestoreのルールに <b>leaderSecrets</b> を足してください。（${esc(state.secretsError)}）</p>` : ""}
+<p class="note">ここで変わるのは「このページに入れるかどうか」だけです。お給料・口座などのデータには触りません。</p>
+`;
+}
+
+function renderSetupOne(e) {
+  const has = !!e.viewerEnabled;
+  const v = Number(e.viewerAuthVersion) || 0;
+  const sec = state.secrets[e.id];
+  const shown = state.showSecretFor === e.id;
+  return `
+<div class="card">
+  <button class="link" style="margin-bottom:12px;" onclick="state.setupEmpId=null; state.setupPw=''; state.showSecretFor=null; render();">← 一覧にもどる</button>
+  <p class="title" style="margin-bottom:10px;">${esc(e.name || "")} さん</p>
+  <div class="kv"><b>管理番号</b><span>${esc(e.employeeCode || "—")}</span></div>
+  <div class="kv"><b>エリア</b><span>${esc(e.area || "—")}</span></div>
+  <div class="kv"><b>いまの状態</b><span class="pill ${has ? "on" : ""}">${has ? "入れます" : "未設定"}</span>${v > 1 ? `<span class="muted" style="font-size:11.5px; margin-left:8px;">（${v}回目のパスワード）</span>` : ""}</div>
+
+  <div class="panel" style="margin-top:16px;">
+    <p class="title" style="font-size:14px; margin:0 0 8px;">いまのパスワード（ひかえ）</p>
+    ${sec ? `
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+      <span class="big">${shown ? esc(sec.password || "") : "● ● ● ● ● ●"}</span>
+      <button class="small" style="padding:7px 14px; font-size:13px;" onclick="state.showSecretFor='${shown ? "" : e.id}'; render();">${shown ? "かくす" : "見る"}</button>
+      <button class="link" onclick="deleteSecret('${e.id}')">ひかえを消す</button>
+    </div>
+    <p class="muted" style="font-size:11.5px; margin:8px 0 0;">ログインID ${esc(sec.loginId || "")}　／　${esc(fmtStamp(sec.updatedAt))} ${esc(sec.updatedBy || "")} が発行</p>
+    ` : `<p class="muted" style="font-size:12.5px; margin:0;">${has ? "この方のひかえはありません（この画面ができる前に発行されたものです）。下で新しいパスワードに変えると、ひかえが残るようになります。" : "まだ発行していません。"}</p>`}
+  </div>
+
+  <label>ログインID（8桁の数字）</label>
+  <input id="setupLoginId" type="text" inputmode="numeric" maxlength="8" placeholder="12345678"
+    value="${esc(state.setupLoginId)}" oninput="state.setupLoginId=this.value;" />
+  <p class="muted" style="font-size:11.5px; margin:6px 0 0;">${e.loginId ? "この番号を本人にお伝えください。" : "ほかの人と重ならない8桁を決めてください（管理番号を8桁にしたものでも大丈夫です）。"}</p>
+
+  <label>${has ? "新しいパスワード" : "パスワード"}（6文字以上）</label>
+  <input id="setupPw" type="${state.setupShowPw ? "text" : "password"}" autocomplete="new-password"
+    value="${esc(state.setupPw)}" oninput="state.setupPw=this.value;" />
+  <label style="display:flex; align-items:center; gap:6px; font-weight:400; font-size:12.5px; margin-top:8px;">
+    <input type="checkbox" style="width:auto;" ${state.setupShowPw ? "checked" : ""} onchange="state.setupShowPw=this.checked; render();" />
+    入力したパスワードを表示する
+  </label>
+
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:16px;">
+    <button class="small" ${state.busy ? "disabled" : ""} onclick="grantLeader('${e.id}')">${state.busy ? "作成中…" : (has ? "パスワードを変える" : "このページに入れるようにする")}</button>
+    ${has ? `<button class="ghost" ${state.busy ? "disabled" : ""} onclick="revokeLeader('${e.id}')">入れないようにする</button>` : ""}
+  </div>
+
+  ${has
+    ? `<p class="note" style="margin-top:16px; border-color:#F0C4BB; background:#FBE7E3; color:#8B3A2B;">パスワードを変えると、<b>今までのパスワードは使えなくなります</b>。新しいほうを必ず本人にお伝えください。</p>`
+    : `<p class="note" style="margin-top:16px;">入れるようにすると、この方は 従業員データ（住所は町名まで・給与や口座は出ません）・お休み・チャット・自分の業務日誌 が見られるようになります。</p>`}
+</div>
+`;
+}
+
+function renderSetupDone() {
+  const d = state.setupDone;
+  return `
+<div class="card">
+  <p class="title" style="color:var(--success);">${d.redo ? "パスワードを変えました" : "入れるようにしました"}</p>
+  <p style="margin:0 0 14px;">${esc(d.name)} さんに、下の3つをお伝えください。</p>
+  <div class="kv"><b>ひらくところ</b><span style="word-break:break-all;">${esc(location.href.split("?")[0])}</span></div>
+  <div class="kv" style="align-items:center;"><b>ログインID</b><span class="big">${esc(d.loginId)}</span></div>
+  <div class="kv" style="align-items:center;"><b>パスワード</b><span class="big">${esc(d.pw)}</span></div>
+  <p class="note" style="margin-top:16px;">このパスワードは「リーダー設定」からいつでも見られます。忘れたと言われたら、この画面で確認してあげてください。</p>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;">
+    <button class="small" onclick="state.setupDone=null; state.setupEmpId=null; render();">つづけて別の人を設定する</button>
+    <button class="ghost" style="color:var(--blue-dark); border-color:var(--blue-dark);" onclick="state.setupDone=null; render();">おわる</button>
+  </div>
+</div>
+`;
+}
+
+async function shachoLogin() {
+  if (!shachoKey()) { state.shachoErr = "社長用カードのQRコードから開いてください。"; render(); return; }
+  state.loading = true; render();
+  try {
+    const cred = await viewerApp.auth().signInWithEmailAndPassword(SHACHO_EMAIL, shachoKey());
+    state.user = { name: "社長", isAdmin: false, isShacho: true, uid: cred.user.uid };
+    const t = new URLSearchParams(location.search).get("tab");
+    state.tab = ["emp", "leave", "chat", "log", "interview"].indexOf(t) >= 0 ? t : "emp";
+    /* 社長の登録の確認と、データの読み込みを同時に始めます（待ち時間を短くするため） */
+    const check = db.collection("presidents").doc(cred.user.uid).get();
+    subscribeAll();
+    const p = await check;
+    if (!p.exists) throw new Error("not-registered");
+    const nm = (p.data() || {}).name;
+    if (nm && nm !== state.user.name) { state.user.name = nm; render(); }
+  } catch (e) {
+    state.user = null;
+    await viewerApp.auth().signOut().catch(() => {});
+    state.loading = false;
+    state.shachoErr = "社長用カードで入れませんでした。もういちど、カードのQRコードを読んでください。";
+    render();
+  }
+}
+
+/* 画面はすぐ出して、Firebaseの部品が届いたら動きはじめます */
+if (!SHACHO) render();
+function bootApp() {
+  if (!startFirebase()) {
+    state.shachoErr = "読み込めませんでした。電波のよいところで、もう一度開いてください。";
+    if (SHACHO) render();
+    else alert("読み込めませんでした。電波のよいところで、もう一度開いてください。");
+    return;
+  }
+  if (SHACHO) shachoLogin();
+}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bootApp);
+else bootApp();
+</script>
+</body>
+</html>
