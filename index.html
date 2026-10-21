@@ -732,6 +732,11 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 .notebox b{font-size:13px}
 .notebox p{font-size:12px; color:var(--ink2); line-height:1.7; margin:6px 0 0}
 .notebox code{background:#EDF1F0; padding:1px 5px; border-radius:4px; font-size:11px}
+.mdel{flex:0 0 auto; font-size:11px; font-weight:700; color:var(--ng); background:#FBEEEC; padding:6px 9px; border-radius:7px}
+@media (max-width:420px){
+  .mrow:not(.sorting){flex-wrap:wrap; row-gap:4px}
+  .mrow:not(.sorting) .mname{flex:1 0 100%}
+}
 .big-btn[disabled]{opacity:.5}
 /* ============================================================
    メンバーの並び替え
@@ -797,7 +802,8 @@ h1,h2,h3{margin:0; font-weight:800; letter-spacing:.02em}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updatePassword, signOut, onAuthStateChanged }
+import { getAuth, initializeAuth, inMemoryPersistence, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+         updatePassword, deleteUser, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 import { getFirestore, doc, collection, query, where, getDoc, getDocs, setDoc, deleteDoc,
          writeBatch, onSnapshot, deleteField, enableIndexedDbPersistence }
@@ -818,6 +824,18 @@ const fbApp = SHACHO ? initializeApp(firebaseConfig, "shacho") : initializeApp(f
 const auth  = getAuth(fbApp);
 const db    = getFirestore(fbApp);
 enableIndexedDbPersistence(db).catch(function(){ /* 複数タブ時などは無視 */ });
+
+/* メンバーの追加・削除・暗証番号の変更に使う「作業用のログイン」。
+   管理者のログインとは別の入れ物（記憶もしない）で動くので、
+   管理者がいったんログアウトしたり、管理者の暗証番号を入れたりしなくてすむ。 */
+var _workerAuth=null;
+function workerAuth(){
+  if(!_workerAuth){
+    var wapp=initializeApp(firebaseConfig, "worker");
+    _workerAuth=initializeAuth(wapp, {persistence: inMemoryPersistence});
+  }
+  return _workerAuth;
+}
 
 /* ============================================================
    アシストカレンダー（Firebase版）
@@ -910,7 +928,7 @@ var S={
   editing:null, addingPlanTo:null, newService:"", loginMode:null, pin:"", loginErr:"", loginBusy:false,
   newMember:"", siteQuery:"", siteGroup:"all", annMonth:0, printing:false,
   fyConfirm:false, scrollTop:false, loginId:"", memberPin:"", availDraft:{}, err:null,
-  imp:null, impBusy:false, impMsg:"", calRich:true, showMates:true, printNames:true, printLayout:"grid", hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false, cFilter:"active", sortMode:false,
+  imp:null, impBusy:false, impMsg:"", calRich:true, showMates:true, printNames:true, printLayout:"grid", hist:null, findQ:"", mpick:false, pickYear:null, printFor:null, viewMember:null, addOpen:false, addName:"", addId:"", addPin:"", addAdminPin:"", addErr:"", addBusy:false, addDone:null, addingMember:false, pinEdit:null, pinNew:"", pinAdmin:"", pinErr:"", pinBusy:false, pinShow:false, siteEdit:null, seErr:"", seBusy:false, seConfirm:false, cFilter:"active", sortMode:false, delMember:null, delBusy:false, delErr:"", teamNote:"",
   contacts:{}, ctEdit:null, ctErr:"", ctBusy:false, cti:null, ctiBusy:false, ctiMsg:"", fax:null, fx:null, faxCfg:{}
 };
 var _lastTab=null;
@@ -3399,7 +3417,10 @@ function viewTeam(){
   return '<h2 class="secttl">メンバー</h2>'+
     '<p class="hint">名前をなおすと、その人の画面にもすぐ反映されます（過去の割り当ては内部のIDで結んでいるので崩れません）。<br>'+
     '<b>件数のボタンをおすと、その方の月別カレンダーが見られます。</b>（'+p[0]+'年'+Number(p[1])+'月）<br>'+
-    '暗証番号のボタンをおすと、確認や変更ができます。</p>'+
+    '暗証番号のボタンで確認・変更、「けす」でメンバーを消せます。しばらくお休みの方は「休止」が便利です。</p>'+
+    (S.teamNote?'<div class="notebox"><b>おしらせ</b><p>'+esc(S.teamNote)+'</p>'+
+      '<p><button class="link" style="padding:0" data-act="team-note-close">とじる</button></p></div>':'')+
+    addMemberForm()+
     '<div class="sortbar">'+
       '<button class="pill toggle'+(S.sortMode?" on":"")+'" data-act="sort-mode">'+
         (S.sortMode?"並べ替えをおわる":"並び順を変える")+'</button>'+
@@ -3428,17 +3449,14 @@ function viewTeam(){
           '<small class="mpin-h">暗証番号</small></button>'+
         '<button class="mcal" data-act="member-view" data-id="'+m.id+'">'+(counts[m.id]||0)+'件</button>'+
         '<button class="mtog" data-act="member-toggle" data-id="'+m.id+'">'+(m.active===false?"もどす":"休止")+'</button>'+
-      '</div>'+(open?pinPanel(m):"");
+        '<button class="mdel" data-act="mdel-open" data-id="'+m.id+'">けす</button>'+
+      '</div>'+(open?pinPanel(m):"")+(S.delMember===m.id?delPanel(m):"");
     }).join("")+'</div>'+
     '<div class="pinbar">'+
       '<button class="pill toggle'+(S.pinShow?" on":"")+'" data-act="pin-show">'+
         (S.pinShow?"暗証番号を隠す":"暗証番号を見せる")+'</button>'+
       '<span class="hint" style="margin:0">人に見られない場所でお使いください</span>'+
     '</div>'+
-    '<div class="notebox"><b>メンバーの追加・暗証番号の再発行</b>'+
-      '<p>ログイン情報はFirebaseが管理しています。追加や暗証番号の変更は、Firebaseコンソールの「Authentication」か、'+
-      'リポジトリの <code>scripts/seed.mjs</code> から行ってください。手順はREADMEに書いています。</p></div>'+
-    addMemberForm()+
     '<h2 class="secttl mt">協力者に見せるもの</h2>'+
     '<div class="switch-row"><div><b>年間の履行スケジュール</b>'+
       '<small>協力者の画面に「年間予定」タブを出します。閲覧のみで、編集はできません。</small></div>'+
@@ -3469,34 +3487,30 @@ async function recordPin(m, pin){
   }
 }
 
-async function changePin(m, newPin, adminPin){
+async function changePin(m, newPin){
   S.pinBusy=true; S.pinErr=""; render();
-  S.addingMember=true;                 /* ログインが切り替わるあいだ、画面を作り直さない */
+  var wa=workerAuth();
   try{
-    /* 1) 管理者の暗証番号を確かめる */
-    await signInWithEmailAndPassword(auth, idToEmail(ADMIN_ID), adminPin);
-    /* 2) その方でログインして、暗証番号を変える */
-    var cred=await signInWithEmailAndPassword(auth, idToEmail(m.loginId), m.pin);
+    /* 作業用のログインでその方として入り、暗証番号を変える（管理者のログインはそのまま） */
+    var cred=await signInWithEmailAndPassword(wa, idToEmail(m.loginId), m.pin);
     await updatePassword(cred.user, newPin);
-    /* 3) 管理者に戻る */
-    await signInWithEmailAndPassword(auth, idToEmail(ADMIN_ID), adminPin);
-    /* 4) 控えを新しくする */
+    try{ await signOut(wa); }catch(e1){}
     await setDoc(doc(db,"members",m.id), {pin:newPin}, {merge:true});
     S.config.members=(S.config.members||[]).map(function(x){
       return x.id===m.id ? Object.assign({},x,{pin:newPin}) : x; });
-    S.addingMember=false;
     S.pinEdit=null; S.pinNew=""; S.pinAdmin=""; S.pinBusy=false;
     flash(m.name+" さんの暗証番号を "+newPin+" に変えました");
   }catch(e){
-    S.addingMember=false; S.pinBusy=false;
+    try{ await signOut(wa); }catch(e2){}
+    S.pinBusy=false;
     var c=(e && e.code)||"";
     S.pinErr =
-      c==="auth/wrong-password"||c==="auth/invalid-credential" ? "暗証番号が違います。控えが古い可能性もあります"
+      c==="auth/wrong-password"||c==="auth/invalid-credential"||c==="auth/user-not-found"
+        ? "控えの暗証番号でログインできませんでした。控えが古いかもしれません。いまの番号がわかれば「控えをなおす」で入れなおしてください"
       : c==="auth/weak-password" ? "新しい暗証番号は6けた以上にしてください"
-      : c==="auth/requires-recent-login" ? "時間をおいて、もう一度おためしください"
+      : c==="auth/too-many-requests" ? "試行が多すぎます。しばらく時間をおいてからおためしください"
       : ("うまくいきませんでした（"+(c||e.message||e)+"）");
     render();
-    try{ if(adminPin) await signInWithEmailAndPassword(auth, idToEmail(ADMIN_ID), adminPin); }catch(e2){}
   }
 }
 
@@ -3510,15 +3524,15 @@ function pinPanel(m){
     '<label class="f"><span>'+(has?'新しい暗証番号':'いまの暗証番号')+'（6けた以上）</span>'+
       '<input inputmode="numeric" maxlength="12" value="'+esc(S.pinNew||"")+'" data-field="pinNew"></label>'+
     (has
-      ? '<label class="f"><span>あなた（管理者）の暗証番号</span>'+
-        '<input type="password" inputmode="numeric" value="'+esc(S.pinAdmin||"")+'" data-field="pinAdmin" placeholder="••••••"></label>'+
-        '<p class="hint">変えるとき、いったんその方の画面に切り替わります。すぐ管理者に戻すために必要です。</p>'
+      ? '<p class="hint">「変える」をおすと、その方のログインの暗証番号が新しい番号になります。'+
+        '控えの番号が古くてうまくいかないときは「控えをなおす」で、いまの番号を入れなおしてください。</p>'
       : '')+
     (S.pinErr?'<p class="err">'+esc(S.pinErr)+'</p>':'')+
     '<div class="addbar">'+
       '<button class="ghost" data-act="pin-cancel">やめる</button>'+
       (has
-        ? '<button class="primary" data-act="pin-change" data-id="'+m.id+'"'+(S.pinBusy?" disabled":"")+'>'+
+        ? '<button class="ghost" data-act="pin-record" data-id="'+m.id+'"'+(S.pinBusy?" disabled":"")+'>控えをなおす</button>'+
+          '<button class="primary" data-act="pin-change" data-id="'+m.id+'"'+(S.pinBusy?" disabled":"")+'>'+
           (S.pinBusy?"変えています…":"変える")+'</button>'
         : '<button class="primary" data-act="pin-record" data-id="'+m.id+'"'+(S.pinBusy?" disabled":"")+'>'+
           (S.pinBusy?"控えています…":"控える")+'</button>')+
@@ -3526,8 +3540,8 @@ function pinPanel(m){
 }
 
 /* ---------- メンバーを追加する ----------
-   Firebase のしくみ上、新しいログインを作ると、いったんその人でログインした状態になります。
-   そのため、作ったあとに管理者へ戻ります。戻るのに暗証番号が要ります。 */
+   作業用のログインで新しいログインを作るので、管理者はログインしたまま。
+   管理者の暗証番号を入れる必要はありません。 */
 function nextLoginId(){
   var n=1000;
   (S.config.members||[]).forEach(function(m){
@@ -3540,56 +3554,156 @@ function newPin(){ return String(Math.floor(100000+Math.random()*900000)); }
 
 async function addMember(){
   var name=String(S.addName||"").trim();
-  var lid=String(S.addId||"").trim();
-  var pin=String(S.addPin||"").trim();
-  var apin=String(S.addAdminPin||"").trim();
+  var lid=String(S.addId||"").normalize("NFKC").trim();
+  var pin=String(S.addPin||"").normalize("NFKC").trim();
 
   if(!name){ S.addErr="お名前を入れてください"; render(); return; }
-  if(!/^\d{3,12}$/.test(lid)){ S.addErr="IDは数字で入れてください"; render(); return; }
+  if(!/^\d{3,12}$/.test(lid)){ S.addErr="IDは数字（3〜12けた）で入れてください"; render(); return; }
   if((S.config.members||[]).some(function(m){ return String(m.loginId)===lid; })){
     S.addErr="そのIDはすでに使われています"; render(); return; }
   if(lid===ADMIN_ID){ S.addErr="そのIDは管理者用です。別の番号にしてください"; render(); return; }
   if(pin.length<6){ S.addErr="暗証番号は6けた以上にしてください"; render(); return; }
-  if(apin.length<6){ S.addErr="あなた（管理者）の暗証番号を入れてください"; render(); return; }
 
   S.addBusy=true; S.addErr=""; render();
-  S.addingMember=true;
-  var newUid=null;
+  var wa=workerAuth(), user=null, uidDone=false;
   try{
-    /* 1) まず管理者の暗証番号が合っているか確かめる */
-    await signInWithEmailAndPassword(auth, idToEmail(ADMIN_ID), apin);
-
-    /* 2) 新しいログインを作る（ここで、いったんその人になる） */
-    var cred=await createUserWithEmailAndPassword(auth, idToEmail(lid), pin);
-    newUid=cred.user.uid;
-
-    /* 3) 管理者に戻る */
-    await signInWithEmailAndPassword(auth, idToEmail(ADMIN_ID), apin);
-
-    /* 4) 役割と名簿を登録する */
+    /* 1) 新しいログインを作る（作業用の入れ物の中だけで、管理者のログインはそのまま） */
+    var cred=await createUserWithEmailAndPassword(wa, idToEmail(lid), pin);
+    user=cred.user;
+    /* 2) 役割と名簿を登録する（管理者として書きこむ） */
     var mid="m"+Date.now().toString(36);
-    await setDoc(doc(db,"uids",newUid), {role:"member", memberId:mid});
-    await setDoc(doc(db,"members",mid), {name:name, loginId:lid, active:true, uid:newUid, pin:pin});
+    await setDoc(doc(db,"uids",user.uid), {role:"member", memberId:mid});
+    uidDone=true;
+    await setDoc(doc(db,"members",mid), {name:name, loginId:lid, active:true, uid:user.uid, pin:pin});
+    try{ await signOut(wa); }catch(e1){}
 
-    S.addingMember=false;
     S.addDone={name:name, loginId:lid, pin:pin};
     S.addOpen=false; S.addName=""; S.addId=""; S.addPin=""; S.addAdminPin=""; S.addBusy=false;
     render();
   }catch(e){
-    S.addingMember=false;
+    /* 途中でうまくいかなかったときは、作りかけのログインを消して元にもどす */
+    if(user){
+      if(uidDone){ try{ await deleteDoc(doc(db,"uids",user.uid)); }catch(e2){} }
+      try{ await deleteUser(user); }catch(e3){}
+    }
+    try{ await signOut(wa); }catch(e4){}
     S.addBusy=false;
     var c=(e && e.code)||"";
+    var alt="";
+    if(c==="auth/email-already-in-use"){
+      /* 前に消した方のログインが残っているIDなど。次の空き番号を入れておく */
+      var used=(S.config.members||[]).map(function(x){ return String(x.loginId); });
+      var k=Number(lid)+1; while(used.indexOf(String(k))>=0) k++;
+      alt=String(k); S.addId=alt;
+    }
     S.addErr =
-      c==="auth/wrong-password"||c==="auth/invalid-credential" ? "あなた（管理者）の暗証番号が違います"
-      : c==="auth/email-already-in-use" ? "そのIDはすでに使われています。別の番号にしてください"
+      c==="auth/email-already-in-use" ? "ID "+lid+" は前に使われたことがあり、使えませんでした。IDを "+alt+" にしておいたので、もう一度「追加する」をおしてください"
       : c==="auth/weak-password" ? "暗証番号は6けた以上にしてください"
       : c==="permission-denied" ? "登録する権限がありません。Firestoreのルールをご確認ください"
       : ("うまくいきませんでした（"+(c||e.message||e)+"）");
-    if(newUid) S.addErr += "　※ログインだけ作られている可能性があります。同じIDで作り直してください。";
     render();
-    /* 念のため、管理者に戻れているか確かめる */
-    try{ if(apin) await signInWithEmailAndPassword(auth, idToEmail(ADMIN_ID), apin); }catch(e2){}
   }
+}
+
+/* ---------- メンバーを消す ----------
+   1) 名簿から消す　2) ログインの記録を消す（アプリに入れなくなる）
+   3) 暗証番号の控えがあれば、ログインそのものも消す（同じIDをまた使えるようになる）
+   4) 今日から先の予定の担当から外す（これまでの予定には名前が残る）　5) 並び順から外す */
+async function removeFromFutureJobs(mid){
+  var today=ymd(new Date()), base=ymOf(new Date()), n=0;
+  for(var k=0;k<13;k++){
+    var ym=addMonths(base,k);
+    var sn=await getDocs(collection(db,"months",ym,"jobs"));
+    var batch=writeBatch(db), cnt=0;
+    sn.forEach(function(d){
+      var j=d.data()||{};
+      if(!j.date || j.date<today) return;
+      var a=(j.assigned||[]), g=(j.ng||[]);
+      var ai=a.indexOf(mid), gi=g.indexOf(mid);
+      if(ai<0 && gi<0) return;
+      var na=a.slice(), nn=(j.assignedNames||[]).slice(), ng=g.slice();
+      if(ai>=0){ na.splice(ai,1); if(nn.length>ai) nn.splice(ai,1); n++; }
+      if(gi>=0) ng.splice(gi,1);
+      batch.set(doc(db,"months",ym,"jobs",d.id), {assigned:na, assignedNames:nn, ng:ng}, {merge:true});
+      cnt++;
+    });
+    if(cnt) await batch.commit();
+  }
+  return n;
+}
+
+async function deleteMember(m){
+  S.delBusy=true; S.delErr=""; render();
+  var notes=[];
+  try{
+    /* ログインの記録（uids）をさがす */
+    var uids=[];
+    if(m.uid) uids.push(m.uid);
+    try{
+      var qs=await getDocs(query(collection(db,"uids"), where("memberId","==",m.id)));
+      qs.forEach(function(d){ if(uids.indexOf(d.id)<0) uids.push(d.id); });
+    }catch(e0){ if(!uids.length) throw e0; }
+
+    /* 名簿とログインの記録を「いっしょに」消す（どちらかでも権限がなければ、何も変えずに止まる）。
+       ログインの記録が消えるので、その方はアプリに入れなくなる */
+    var wb=writeBatch(db);
+    wb.delete(doc(db,"members",m.id));
+    for(var i=0;i<uids.length;i++){ wb.delete(doc(db,"uids",uids[i])); }
+    await wb.commit();
+    if(!uids.length) notes.push("ログインの記録が見つかりませんでした。");
+
+    /* ログインそのものを消す（控えの暗証番号で、作業用のログインから） */
+    if(m.pin){
+      var wa=workerAuth();
+      try{
+        var cred=await signInWithEmailAndPassword(wa, idToEmail(m.loginId), m.pin);
+        await deleteUser(cred.user);
+      }catch(e1){
+        notes.push("ID "+m.loginId+" のログインは残りましたが、アプリには入れません（同じIDは使えないので、新しい方には別のIDを使ってください）。");
+      }
+      try{ await signOut(wa); }catch(e2){}
+    }else{
+      notes.push("暗証番号の控えがなかったので、ID "+m.loginId+" のログインは残りましたが、アプリには入れません（同じIDは使えないので、新しい方には別のIDを使ってください）。");
+    }
+
+    /* 今日から先の予定の担当から外す */
+    var removed=0;
+    try{ removed=await removeFromFutureJobs(m.id); }
+    catch(e3){ notes.push("これからの予定の担当から外すところで止まりました。予定の画面で確認してください。"); }
+
+    /* 並び順から外す */
+    var ord=(S.config.memberOrder||[]);
+    if(ord.indexOf(m.id)>=0){
+      try{ await setDoc(doc(db,"config","app"), {memberOrder:ord.filter(function(x){ return x!==m.id; })}, {merge:true}); }catch(e4){}
+    }
+
+    S.config.members=(S.config.members||[]).filter(function(x){ return x.id!==m.id; });
+    S.delMember=null; S.delBusy=false; S.pinEdit=null;
+    if(S.viewMember===m.id) S.viewMember=null;
+    S.teamNote=m.name+" さんを消しました。"+(removed?"これからの予定 "+removed+"件の担当から外しました。":"")+notes.join("");
+    S.scrollTop=true;
+    flash(m.name+" さんを消しました");
+  }catch(e){
+    S.delBusy=false;
+    var c=(e && e.code)||"";
+    S.delErr = c==="permission-denied"
+      ? "消せませんでした。Firebaseのルールに「管理者がメンバーを消せる」許可が入っているかご確認ください（何も変わっていません）"
+      : ("消せませんでした（"+(c||e.message||e)+"）");
+    render();
+  }
+}
+
+function delPanel(m){
+  return '<div class="delbox" style="margin:0;border-radius:0;border-width:0 0 2px">'+
+    '<b>'+esc(m.name)+' さん（ID '+esc(m.loginId||"")+'）を消しますか？</b>'+
+    '<p>・アプリにログインできなくなります。<br>'+
+    '・今日から先の予定に入っていれば、その担当から外します。<br>'+
+    '・これまでの予定には、名前がそのまま残ります。<br>'+
+    '・もとには戻せません。しばらくお休みの方なら「休止」をおすすめします。</p>'+
+    (S.delErr?'<p class="err">'+esc(S.delErr)+'</p>':'')+
+    '<div class="addbar"><button class="ghost" data-act="mdel-cancel">やめる</button>'+
+      '<button class="danger" style="flex:1" data-act="mdel-go" data-id="'+m.id+'"'+(S.delBusy?" disabled":"")+'>'+
+      (S.delBusy?"消しています…":"消す")+'</button></div></div>';
 }
 
 function addMemberForm(){
@@ -3597,7 +3711,7 @@ function addMemberForm(){
     return '<div class="addbox done"><b>'+esc(S.addDone.name)+' さんを追加しました</b>'+
       '<table class="addtbl"><tr><th>ID</th><td>'+esc(S.addDone.loginId)+'</td></tr>'+
       '<tr><th>暗証番号</th><td>'+esc(S.addDone.pin)+'</td></tr></table>'+
-      '<p>この2つをご本人にお伝えください。あとから見ることはできません。</p>'+
+      '<p>この2つをご本人にお伝えください。暗証番号は、あとからもその方の暗証番号のボタンで確認できます。</p>'+
       '<button class="primary" data-act="add-close">とじる</button></div>';
   }
   if(!S.addOpen){
@@ -3610,10 +3724,8 @@ function addMemberForm(){
       '<label class="f"><span>ID（数字）</span><input inputmode="numeric" value="'+esc(S.addId||"")+'" data-field="addId"></label>'+
       '<label class="f"><span>暗証番号（6けた以上）</span><input inputmode="numeric" value="'+esc(S.addPin||"")+'" data-field="addPin"></label>'+
     '</div>'+
-    '<label class="f"><span>あなた（管理者）の暗証番号</span>'+
-      '<input type="password" inputmode="numeric" value="'+esc(S.addAdminPin||"")+'" data-field="addAdminPin" placeholder="••••••"></label>'+
-    '<p class="hint">新しいログインを作るとき、いったんその方の画面に切り替わります。'+
-      'すぐ管理者に戻すために、あなたの暗証番号が必要です。</p>'+
+    '<p class="hint">IDと暗証番号は自動で入れています。好きな番号に変えてもかまいません。'+
+      '「追加する」をおすと、すぐにその方がログインできるようになります。</p>'+
     (S.addErr?'<p class="err">'+esc(S.addErr)+'</p>':'')+
     '<div class="addbar">'+
       '<button class="ghost" data-act="add-close">やめる</button>'+
@@ -4274,7 +4386,7 @@ document.addEventListener("click", async function(ev){
     case "se-del-cancel": S.seConfirm=false; render(); break;
     case "se-del-go": await deleteSite(); break;
     case "pin-open":
-      S.pinEdit=(S.pinEdit===id?null:id); S.pinNew=""; S.pinAdmin=""; S.pinErr="";
+      S.pinEdit=(S.pinEdit===id?null:id); S.pinNew=""; S.pinAdmin=""; S.pinErr=""; S.delMember=null;
       render(); break;
     case "pin-cancel": S.pinEdit=null; S.pinNew=""; S.pinAdmin=""; S.pinErr=""; render(); break;
     case "pin-record": {
@@ -4289,8 +4401,7 @@ document.addEventListener("click", async function(ev){
       var np=String(S.pinNew||"").trim(), ap=String(S.pinAdmin||"").trim();
       if(!mc) break;
       if(np.length<6){ S.pinErr="新しい暗証番号は6けた以上にしてください"; render(); break; }
-      if(ap.length<6){ S.pinErr="あなた（管理者）の暗証番号を入れてください"; render(); break; }
-      await changePin(mc, np, ap); break;
+      await changePin(mc, np); break;
     }
     case "add-open":
       S.addOpen=true; S.addDone=null; S.addErr="";
@@ -4298,6 +4409,14 @@ document.addEventListener("click", async function(ev){
       render(); break;
     case "add-close": S.addOpen=false; S.addDone=null; S.addErr=""; render(); break;
     case "add-go": await addMember(); break;
+    case "mdel-open": S.delMember=(S.delMember===id?null:id); S.delErr=""; S.pinEdit=null; render(); break;
+    case "mdel-cancel": S.delMember=null; S.delErr=""; render(); break;
+    case "mdel-go": {
+      var md=(S.config.members||[]).find(function(x){ return x.id===id; });
+      if(md) await deleteMember(md);
+      break;
+    }
+    case "team-note-close": S.teamNote=""; render(); break;
     case "mday": S.openDay=v; S.editing=null; S.availDraft={}; render(); break;
     case "mmon": {
       S.ym=addMonths(S.ym,Number(v));
